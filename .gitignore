@@ -1,6 +1,5 @@
 # Secrets / credentials
-수집/config.py
-수집/.env
+.env
 *.env
 .env.*
 !.env.example
