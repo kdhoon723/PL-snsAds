@@ -1,0 +1,45 @@
+# Secrets / credentials
+수집/config.py
+수집/.env
+*.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model artifacts (large binaries)
+*.pt
+*.pth
+*.bin
+*.safetensors
+best_model.pt
+training_result.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude Code / OMC local state
+.omc/
+.claude/
+CLAUDE.local.md
