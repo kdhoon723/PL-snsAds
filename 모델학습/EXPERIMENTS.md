@@ -759,3 +759,76 @@ warmup_ratio: 0.1
 - **사회적_정체성**이 항상 가장 약함 (양성 7.8%, 학습 신호 부족)
 - 호혜성/희소성/가격비교는 강함 (양성 11~23%, 명확한 키워드)
 - 강도 MAE 0.08 미만이면 학술적 의미 있는 측정 가능
+
+---
+
+# 🔬 Multitask 학습 (Cycle 38~) — 진행 예정
+
+## 배경
+PDF (`모델학습/가중치 계산.pdf`) 설계 도입. 카테고리(multi-label sigmoid) + 방향성(softmax) + 강도(softmax) 동시 학습으로 더 풍부한 점수 산출. Phase C에서 6,400+건 방향성·강도 라벨링 완료 후 학습.
+
+## 학습 데이터 (예상)
+- 통합데이터셋 v2: 카테고리 7 + 카테고리별 방향성(3) + 카테고리별 강도(3) = 7 + 7×3 + 7×3 = 49 라벨/광고
+- 음성 카테고리는 방향성·강도 mask (학습 시 loss에 미포함)
+
+## 모델 구조
+```
+BERT 인코더 (shared)
+ ├─ category_head: Linear(hidden, 7) → sigmoid → BCE
+ ├─ polarity_head: Linear(hidden, 7×3) → reshape (B, 7, 3) → softmax → CE (masked)
+ └─ intensity_head: Linear(hidden, 7×3) → reshape (B, 7, 3) → softmax → CE (masked)
+```
+
+## Cycle 계획 (10~13 cycle 예정)
+
+### Cycle 38: Multitask baseline (PDF 권장)
+- Cycle 19 설정 + multitask 0.6/0.2/0.2
+- klue/roberta-large, max_len 256, batch 8, lr 1e-5, focal γ=1.0, dropout 0.1
+- 검증: 카테고리 F1 (cycle 19와 비교), polarity F1, intensity F1, 강도 점수 MAE (PDF 공식)
+
+### Cycle 39~41: Loss weighting
+- 39: 0.5/0.25/0.25 (균등 가까이)
+- 40: 0.4/0.3/0.3 (보조 task 비중 ↑)
+- 41: 0.7/0.15/0.15 (카테고리 비중 ↑)
+
+### Cycle 42: Uncertainty weighting (Kendall et al. 2018)
+- 자동 task balance — log variance 학습으로 unstable task 자동 다운웨이트
+
+### Cycle 43: GradNorm (Chen et al. 2018)
+- gradient magnitude 정규화 — 적응적 task balance
+
+### Cycle 44: Polarity focal (불균형 대응)
+- 38 + polarity CE → focal CE γ=2.0 (부정·중립 적으므로)
+
+### Cycle 45: Intensity weighted CE
+- 38 + intensity 클래스 가중치 (강/보통/약 불균형 보정)
+
+### Cycle 46: 2-stage training
+- Stage 1: 카테고리만 학습 (3 epoch)
+- Stage 2: 모든 head joint fine-tune (10 epoch)
+
+### Cycle 47: Polarity oversampling
+- 부정·중립 케이스 oversampling (5~10배) — IRR 검증된 표본 부족 대응
+
+### Cycle 48: 강도 점수 MAE 직접 최적화
+- BCE/CE 외에 강도 점수 MAE 손실 추가 (auxiliary)
+
+### Cycle 49~50: Multitask ensemble
+- Best 3 cycle 앙상블 (Cycle 23 패턴 재현)
+
+## 검증 metric
+1. **카테고리 Macro F1** (cycle 23 0.7871과 비교)
+2. **Polarity F1** (카테고리별 + 전체, weighted by 양성 빈도)
+3. **Intensity F1** (카테고리별 + 전체)
+4. **강도 점수 MAE** (PDF 공식 `Σ w × ĉ × p × t × synergy`)
+5. **단순 모델 v1 vs 풍부 v2 비교 분석**
+
+## 가설 (사전)
+- H1: Multitask가 카테고리 단독보다 약간 ↓ (보조 task로 인한 capacity 분산), 단 강도 점수 MAE는 개선
+- H2: 손실 가중치 0.6/0.2/0.2이 baseline. uncertainty weighting (cycle 42)이 더 robust
+- H3: Polarity focal (cycle 44)이 부정·중립 F1 ↑
+- H4: 2-stage (cycle 46)이 joint보다 약간 ↑ — 카테고리 학습 안정화 후 보조 task
+- H5: 앙상블 (cycle 49~50)이 단일 best보다 0.005~0.01 ↑ (cycle 23 패턴)
+
+[TBD — 실험 결과는 라벨링 완료 후 채워짐]
+
