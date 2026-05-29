@@ -12,6 +12,7 @@
 """
 from __future__ import annotations
 import json
+import sys
 from io import BytesIO
 from pathlib import Path
 from typing import Literal
@@ -19,7 +20,8 @@ from typing import Literal
 import numpy as np
 import torch
 import torch.nn as nn
-from fastapi import FastAPI, File, HTTPException, UploadFile
+import torch.nn.functional as F
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 from PIL import Image
 from pydantic import BaseModel
@@ -32,6 +34,14 @@ CAT = ["사회적_정체성", "희소성", "긴급성", "사회적_증명", "가
 WEIGHTS = {"권위_신뢰":0.221,"사회적_증명":0.159,"사회적_정체성":0.156,"호혜성":0.151,
            "희소성":0.126,"긴급성":0.096,"가격비교":0.091}
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+# v2 추가
+sys.path.insert(0, str(PROJECT / "모델학습"))
+from train_v3_multitask import MultiTaskClassifier, POLARITY, INTENSITY
+from scoring_v2 import (
+    CategoryResult, calculate_ad_score, calibrate_confidence,
+    POLARITY_SCORE, INTENSITY_SCORE,
+)
 
 
 class AdsClassifier(nn.Module):
@@ -58,7 +68,7 @@ def load_run(run_name: str):
 
 
 print(f"🔧 Device: {DEVICE}")
-print("📥 Loading classifier models...")
+print("📥 Loading v1 classifier models (Cycle 19/13/18, F1 0.787)...")
 MODELS = {}
 for run_name in ["cycle19_dropout0.1", "cycle13_claude_only", "cycle18_dropout0.5"]:
     MODELS[run_name] = load_run(run_name)
@@ -67,7 +77,32 @@ ENSEMBLE_THR = [
     json.loads((RUNS / "cycle23_ensemble_gamma1" / "result.json").read_text(encoding="utf-8"))["thresholds"][c]
     for c in CAT
 ]
-print("✅ Classifiers loaded\n")
+print("✅ v1 classifiers loaded")
+
+# v2 multitask 모델 (Cycle 50 4-앙상블, F1 0.8296)
+V2_MODELS = []
+V2_THR = None
+def load_v2():
+    global V2_MODELS, V2_THR
+    if V2_MODELS:
+        return
+    print("📥 Loading v2 multitask models (Cycle 41/48/39/46 ensemble, F1 0.830)...")
+    for rn in ["cycle41_taskweight_cat", "cycle48_seed7", "cycle39_taskweight_balanced", "cycle46_dropout0.2"]:
+        rdir = RUNS / rn
+        cfg = json.loads((rdir / "config.json").read_text(encoding="utf-8"))
+        tok = AutoTokenizer.from_pretrained(cfg["model"])
+        m = MultiTaskClassifier(cfg["model"], cfg["dropout"]).to(DEVICE)
+        m.load_state_dict(torch.load(rdir / "best_model.pt", weights_only=True, map_location=DEVICE))
+        m.eval()
+        V2_MODELS.append((tok, m, cfg["max_length"]))
+        print(f"   ✓ {rn}")
+    # Cycle 50 결과에서 threshold
+    ens_result = json.loads((RUNS / "cycle50_ensemble_41_48_39_46" / "result.json").read_text(encoding="utf-8"))
+    V2_THR = [ens_result["thresholds"][c] for c in CAT]
+    print("✅ v2 multitask ensemble loaded\n")
+
+# startup에서 v2도 로딩 (메모리 충분)
+load_v2()
 
 # Qwen3-VL OCR (광고 이미지 → 텍스트)
 OCR_MODEL_NAME = "Qwen/Qwen3-VL-8B-Instruct"
@@ -141,6 +176,7 @@ def analyze(text: str, model_key: str):
     level = ("강함 🔥" if intensity >= 0.4 else "중간 ⚡" if intensity >= 0.2
              else "약함 💧" if intensity >= 0.05 else "거의없음 ⚪")
     return {
+        "version": "v1",
         "text": text,
         "model": "Cycle 19 단일" if model_key == "single" else "Cycle 23 앙상블",
         "intensity_score": round(intensity, 4),
@@ -158,9 +194,72 @@ def analyze(text: str, model_key: str):
     }
 
 
+@torch.no_grad()
+def analyze_v2(text: str):
+    """v2 Multitask 앙상블 (Cycle 50 4-모델) + PDF + 팀원 A 점수 공식."""
+    if not V2_MODELS:
+        load_v2()
+    cat_probs_acc = None
+    pol_probs_acc = None
+    int_probs_acc = None
+    for tok, m, max_len in V2_MODELS:
+        enc = tok(text, truncation=True, padding="max_length", max_length=max_len, return_tensors="pt")
+        cat_l, pol_l, int_l = m(enc["input_ids"].to(DEVICE), enc["attention_mask"].to(DEVICE))
+        cp = torch.sigmoid(cat_l).cpu().numpy()[0]
+        pp = F.softmax(pol_l, dim=-1).cpu().numpy()[0]
+        ip = F.softmax(int_l, dim=-1).cpu().numpy()[0]
+        cat_probs_acc = cp if cat_probs_acc is None else cat_probs_acc + cp
+        pol_probs_acc = pp if pol_probs_acc is None else pol_probs_acc + pp
+        int_probs_acc = ip if int_probs_acc is None else int_probs_acc + ip
+    n_models = len(V2_MODELS)
+    cat_probs = cat_probs_acc / n_models
+    pol_probs = pol_probs_acc / n_models
+    int_probs = int_probs_acc / n_models
+
+    thr = np.array(V2_THR)
+    cat_preds = (cat_probs >= thr).astype(int)
+    pol_preds = pol_probs.argmax(-1)
+    int_preds = int_probs.argmax(-1)
+
+    # CategoryResult → 점수 공식
+    results = []
+    for i, c in enumerate(CAT):
+        results.append(CategoryResult(
+            category=c,
+            probability=float(cat_probs[i]),
+            is_positive=bool(cat_preds[i]),
+            polarity=POLARITY[pol_preds[i]] if cat_preds[i] else None,
+            intensity=INTENSITY[int_preds[i]] if cat_preds[i] else None,
+        ))
+    sr = calculate_ad_score(results)
+
+    return {
+        "version": "v2",
+        "text": text,
+        "model": "Cycle 50 Multitask 4-앙상블 (F1 0.8296)",
+        "final_score_100": sr["final_score_100"],
+        "raw_score": sr["raw_score"],
+        "n_positive_categories": sr["n_positive_categories"],
+        "synergy_factor": sr["synergy_factor"],
+        "per_category": [
+            {
+                "category": c,
+                "probability": round(float(cat_probs[i]), 4),
+                "threshold": round(float(thr[i]), 3),
+                "predicted": int(cat_preds[i]),
+                "weight": WEIGHTS[c],
+                "polarity": POLARITY[pol_preds[i]] if cat_preds[i] else None,
+                "intensity": INTENSITY[int_preds[i]] if cat_preds[i] else None,
+                "calibrated_confidence": round(calibrate_confidence(c, float(cat_probs[i])), 4) if cat_preds[i] else 0.0,
+                "score_contribution": next((p["score"] for p in sr["per_category"] if p["category"] == c), 0.0),
+            } for i, c in enumerate(CAT)
+        ],
+    }
+
+
 class AnalyzeReq(BaseModel):
     text: str
-    model: Literal["single", "ensemble"] = "single"
+    model: Literal["single", "ensemble", "v2"] = "ensemble"
 
 
 app = FastAPI(title="SNS 광고 소비심리 자극 측정")
@@ -395,7 +494,11 @@ INDEX_HTML = """<!doctype html>
           <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8L9.41 17.34a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
         </svg>
       </button>
-      <span class="shortcut" id="inputHint">⌘+Enter · 드롭/⌘+V로 이미지</span>
+      <label class="toggle" title="v2: Multitask 모델 + 방향성·강도·시너지 점수 (F1 0.830)">
+        <input type="checkbox" id="v2toggle" checked>
+        <span>풍부 분석 v2</span>
+      </label>
+      <span class="shortcut" id="inputHint" style="flex:1; text-align:right">⌘+Enter</span>
       <button class="primary" id="go">분석</button>
     </div>
     <div class="drop-overlay" id="dropOverlay">
@@ -512,13 +615,17 @@ window.addEventListener('paste', e => {
   }
 });
 
+function getModelChoice() {
+  return $('#v2toggle').checked ? 'v2' : 'ensemble';
+}
+
 async function analyzeImage(file) {
   const result = $('#result');
   $('#go').disabled = true; $('#go').textContent = 'OCR + 분석 중';
   result.classList.add('show');
   result.innerHTML = '<div class="loading"><div class="spinner"></div><p>Qwen3-VL OCR + 7 카테고리 분류 중...</p></div>';
   try {
-    const fd = new FormData(); fd.append('file', file);
+    const fd = new FormData(); fd.append('file', file); fd.append('model', getModelChoice());
     const r = await fetch('/api/analyze-image', { method: 'POST', body: fd });
     if (!r.ok) {
       const err = await r.json().catch(() => ({detail: 'HTTP ' + r.status}));
@@ -538,7 +645,7 @@ async function analyze() {
   const text = $('#text').value.trim();
   const result = $('#result');
   if (!text) { result.classList.add('show'); result.innerHTML = '<div class="error">텍스트를 입력하세요</div>'; return; }
-  const model = 'ensemble';
+  const model = getModelChoice();
   $('#go').disabled = true; $('#go').textContent = '분석 중';
   result.classList.add('show');
   result.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
@@ -557,6 +664,11 @@ async function analyze() {
 }
 
 function render(d) {
+  if (d.version === 'v2') return renderV2(d);
+  return renderV1(d);
+}
+
+function renderV1(d) {
   const pct = Math.min(100, d.intensity_score / 0.84 * 100);
   const levelClass = d.intensity_score >= 0.4 ? 'high'
                   : d.intensity_score >= 0.2 ? 'mid'
@@ -606,6 +718,73 @@ function render(d) {
   `;
 }
 
+function renderV2(d) {
+  // 점수 0~100, 시너지 표시
+  const score = d.final_score_100;
+  const pct = Math.min(100, Math.max(0, score));
+  const levelClass = score >= 50 ? 'high' : score >= 25 ? 'mid' : score >= 5 ? 'low' : 'none';
+  const levelTxt = score >= 50 ? '강한 자극'
+                 : score >= 25 ? '중간 자극'
+                 : score >= 5 ? '약한 자극' : '거의 없음';
+
+  const POL_EMOJI = { '긍정': '↑', '중립': '·', '부정': '↓' };
+  const INT_EMOJI = { '강': '●●●', '보통': '●●', '약': '●' };
+
+  const tags = d.per_category.filter(c => c.predicted).map(c =>
+    `<span class="tag" title="${c.polarity || ''} ${c.intensity || ''}">
+      <span class="tag-dot" style="background:${COLORS[c.category]}"></span>
+      ${c.category.replace('_', ' ')}
+    </span>`
+  ).join('');
+
+  // 가중치 큰 순 정렬
+  const sorted = [...d.per_category].sort((a, b) => b.weight - a.weight);
+  const rows = sorted.map(c => {
+    const w = Math.min(100, c.probability * 100);
+    const tpct = Math.min(100, c.threshold * 100);
+    const cls = c.predicted ? 'pos' : '';
+    const tags = c.predicted
+      ? `<span style="font-size:11px;color:var(--text-soft);margin-left:6px">${POL_EMOJI[c.polarity]} ${INT_EMOJI[c.intensity]}</span>`
+      : '';
+    return `<div class="cat-row ${cls}" data-c="${c.category}">
+      <div class="cat-name">
+        <span class="cat-dot" style="background:${COLORS[c.category]}"></span>
+        ${c.category.replace('_', ' ')}${tags}
+      </div>
+      <div class="cat-bar">
+        <div class="cat-bar-fill" style="width:${w}%; background:${COLORS[c.category]}"></div>
+        <div class="cat-bar-thr" style="left:${tpct}%"></div>
+      </div>
+      <div class="cat-prob">${(c.probability * 100).toFixed(0)}%</div>
+    </div>`;
+  }).join('');
+
+  const ocrBlock = d.ocr_text
+    ? `<div class="ocr-box"><div class="ocr-label">📷 추출된 텍스트</div><div class="ocr-text">${escapeHtml(d.ocr_text)}</div></div>`
+    : '';
+
+  const syn = d.n_positive_categories >= 1
+    ? `n=${d.n_positive_categories} 카테고리 × 시너지 ×${d.synergy_factor}`
+    : '양성 카테고리 없음';
+
+  $('#result').innerHTML = `
+    ${ocrBlock}
+    <div class="card hero">
+      <div class="level ${levelClass}">${levelTxt} · v2 풍부 분석</div>
+      <div class="score">${score.toFixed(1)}<span style="font-size:24px;color:var(--text-mute);font-weight:500"> / 100</span></div>
+      <div class="gauge"><div class="gauge-fill" style="width:${pct}%"></div></div>
+      <div style="font-size:12px;color:var(--text-mute);margin-top:12px">${syn}</div>
+      ${tags ? `<div class="actives">${tags}</div>` : ''}
+    </div>
+    <div class="cats">${rows}</div>
+    <div class="meta">
+      <span>↑긍정 ·중립 ↓부정 / ●●●강 ●●보통 ●약</span>
+      <span>Cycle 50 앙상블 (F1 0.830)</span>
+    </div>
+    <details><summary>상세 JSON</summary><pre>${JSON.stringify(d, null, 2)}</pre></details>
+  `;
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
@@ -622,9 +801,10 @@ def index():
 @app.get("/api/models")
 def models():
     return {
-        "available": ["single", "ensemble"],
-        "single": "Cycle 19 (klue/roberta-large + focal γ=1.0 + dropout 0.1)",
-        "ensemble": "Cycle 23 (Cycle 19 + 13 + 18 평균)",
+        "available": ["single", "ensemble", "v2"],
+        "single": "v1 단일: Cycle 19 (multi-label sigmoid, F1 0.778)",
+        "ensemble": "v1 앙상블: Cycle 23 (Cycle 19+13+18, F1 0.787)",
+        "v2": "v2 Multitask 앙상블: Cycle 50 (Cycle 41+48+39+46, F1 0.830 + polarity·intensity·synergy)",
         "weights": WEIGHTS,
         "categories": CAT,
     }
@@ -637,11 +817,13 @@ def api_analyze(req: AnalyzeReq):
         raise HTTPException(400, "text is empty")
     if len(text) > 4000:
         raise HTTPException(400, "text too long (max 4000 chars)")
+    if req.model == "v2":
+        return analyze_v2(text)
     return analyze(text, req.model)
 
 
 @app.post("/api/analyze-image")
-async def api_analyze_image(file: UploadFile = File(...)):
+async def api_analyze_image(file: UploadFile = File(...), model: str = Form("ensemble")):
     if not (file.content_type or "").startswith("image/"):
         raise HTTPException(400, "이미지 파일이 아닙니다")
     data = await file.read()
@@ -659,7 +841,10 @@ async def api_analyze_image(file: UploadFile = File(...)):
     text = extract_text(img)
     if not text.strip():
         raise HTTPException(422, "이미지에서 텍스트를 추출하지 못했습니다")
-    result = analyze(text, "ensemble")
+    if model == "v2":
+        result = analyze_v2(text)
+    else:
+        result = analyze(text, model if model in ("single", "ensemble") else "ensemble")
     result["ocr_text"] = text
     return result
 
