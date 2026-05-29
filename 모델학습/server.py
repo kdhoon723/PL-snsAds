@@ -236,7 +236,7 @@ def analyze_v2(text: str):
     return {
         "version": "v2",
         "text": text,
-        "model": "Cycle 50 Multitask 4-앙상블 (F1 0.8296)",
+        "model": "v2 보정 점수 (PDF) — Cycle 50 multitask 4-앙상블 (F1 0.8296)",
         "final_score_100": sr["final_score_100"],
         "raw_score": sr["raw_score"],
         "n_positive_categories": sr["n_positive_categories"],
@@ -494,9 +494,9 @@ INDEX_HTML = """<!doctype html>
           <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8L9.41 17.34a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
         </svg>
       </button>
-      <label class="toggle" title="v2: Multitask 모델 + 방향성·강도·시너지 점수 (F1 0.830)">
+      <label class="toggle" title="v2: PDF 점수 공식 (학술 가중치 × 신뢰도 보정 × 방향성 × 강도 × 시너지). 카테고리 F1 0.830 (v1 0.787 대비 +0.043)">
         <input type="checkbox" id="v2toggle" checked>
-        <span>풍부 분석 v2</span>
+        <span>보정 점수 (PDF)</span>
       </label>
       <span class="shortcut" id="inputHint" style="flex:1; text-align:right">⌘+Enter</span>
       <button class="primary" id="go">분석</button>
@@ -770,7 +770,7 @@ function renderV2(d) {
   $('#result').innerHTML = `
     ${ocrBlock}
     <div class="card hero">
-      <div class="level ${levelClass}">${levelTxt} · v2 풍부 분석</div>
+      <div class="level ${levelClass}">${levelTxt} · 보정 점수 (PDF)</div>
       <div class="score">${score.toFixed(1)}<span style="font-size:24px;color:var(--text-mute);font-weight:500"> / 100</span></div>
       <div class="gauge"><div class="gauge-fill" style="width:${pct}%"></div></div>
       <div style="font-size:12px;color:var(--text-mute);margin-top:12px">${syn}</div>
@@ -802,9 +802,9 @@ def index():
 def models():
     return {
         "available": ["single", "ensemble", "v2"],
-        "single": "v1 단일: Cycle 19 (multi-label sigmoid, F1 0.778)",
-        "ensemble": "v1 앙상블: Cycle 23 (Cycle 19+13+18, F1 0.787)",
-        "v2": "v2 Multitask 앙상블: Cycle 50 (Cycle 41+48+39+46, F1 0.830 + polarity·intensity·synergy)",
+        "single": "v1 단일: Cycle 19 (multi-label sigmoid, F1 0.778, 단순 강도점수 Σw·prob)",
+        "ensemble": "v1 앙상블: Cycle 23 (Cycle 19+13+18, F1 0.787, 단순 강도점수 Σw·prob)",
+        "v2": "v2 보정 점수 (PDF): Cycle 50 multitask 앙상블 (Cycle 41+48+39+46, F1 0.830) + 학술 보정 공식 Σ(w·ĉ·p·t)·synergy·100",
         "weights": WEIGHTS,
         "categories": CAT,
     }
