@@ -838,6 +838,27 @@ BERT 인코더 (shared)
   - 사회적_증명 0.836 (cycle 21 best 0.820 대비 +0.016)
 ### Cycle 51: weighted 앙상블 (cycle 41 ×2) — Cat F1 0.8296 (동일, 추가 효과 없음)
 
+### Cycle 52: ⭐ Confounded ablation (v3 데이터 + v1 단일 task) — **충격적 발견**
+- 설정: train_v2.py + 통합데이터셋_v3_for_v1 (split_*_v3 symlink)
+- 동일 hyperparameter (klue/roberta-large, max_len 256, lr 1e-5, focal γ=1.0, dropout 0.1)
+- 결과:
+  - **Test Cat F1 0.8305** (vs Cycle 50 multitask 앙상블 0.8296, **+0.0009 더 높음!**)
+  - 강도점수 MAE 0.0471 (v1 단순 공식)
+  - 카테고리별: 권위 0.867 / 호혜성 0.893 / 정체성 0.702 / 긴급성 0.831 / 사회적_증명 0.839 / 가격비교 0.835 / 희소성 0.848
+- **결론**: 0.787 → 0.830 개선의 **100%는 데이터 보강 효과**. Multitask + 앙상블의 카테고리 F1 기여 = -0.001 (오차 범위)
+- v2 multitask의 가치 = **추가 출력 (polarity·intensity)** 과 **점수 시스템**에 있음, 분류 성능 자체 X
+- 상세 분석: `실험분석보고서.md` §5
+
+### 점수 공식 Ablation (Test 922건, Cycle 50 모델)
+- Full (PDF+팀원 A): MAE 6.83
+- **-신뢰도 보정**: MAE **5.80** ⭐ (1.03 개선)
+- -방향성: 6.83 (동일, 99% 긍정 분포 영향)
+- -강도: 8.12 (악화 — 가장 중요)
+- -시너지: 7.31 (악화)
+- v1 단순 ×100: 7.87 (악화)
+- **권장 공식**: `Σ(w × prob × p × t) × synergy(n) × 100` (신뢰도 보정 제거)
+- 상세: `실험분석보고서.md` §4
+
 ---
 
 ## 🏁 Multitask 최종 결과 (Cycle 38~51, 14 cycle)
