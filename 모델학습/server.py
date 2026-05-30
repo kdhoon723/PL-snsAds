@@ -195,8 +195,12 @@ def analyze(text: str, model_key: str):
 
 
 @torch.no_grad()
-def analyze_v2(text: str):
-    """v2 Multitask 앙상블 (Cycle 50 4-모델) + PDF + 팀원 A 점수 공식."""
+def analyze_v2(text: str, use_calibration: bool = True, use_synergy: bool = True):
+    """v2 Multitask 앙상블 (Cycle 50 4-모델) + PDF + 팀원 A 점수 공식.
+
+    use_calibration: PDF baseline 신뢰도 보정 (기본 True = PDF 원본)
+    use_synergy: Inverted-U 시너지 보정 (기본 True = PDF 원본)
+    """
     if not V2_MODELS:
         load_v2()
     cat_probs_acc = None
@@ -221,7 +225,7 @@ def analyze_v2(text: str):
     pol_preds = pol_probs.argmax(-1)
     int_preds = int_probs.argmax(-1)
 
-    # CategoryResult → 점수 공식
+    # CategoryResult → 점수 공식 (옵션 반영)
     results = []
     for i, c in enumerate(CAT):
         results.append(CategoryResult(
@@ -231,7 +235,7 @@ def analyze_v2(text: str):
             polarity=POLARITY[pol_preds[i]] if cat_preds[i] else None,
             intensity=INTENSITY[int_preds[i]] if cat_preds[i] else None,
         ))
-    sr = calculate_ad_score(results)
+    sr = calculate_ad_score(results, use_calibration=use_calibration, use_synergy=use_synergy)
 
     return {
         "version": "v2",
@@ -241,6 +245,7 @@ def analyze_v2(text: str):
         "raw_score": sr["raw_score"],
         "n_positive_categories": sr["n_positive_categories"],
         "synergy_factor": sr["synergy_factor"],
+        "options": sr["options"],
         "per_category": [
             {
                 "category": c,
@@ -250,7 +255,7 @@ def analyze_v2(text: str):
                 "weight": WEIGHTS[c],
                 "polarity": POLARITY[pol_preds[i]] if cat_preds[i] else None,
                 "intensity": INTENSITY[int_preds[i]] if cat_preds[i] else None,
-                "calibrated_confidence": round(calibrate_confidence(c, float(cat_probs[i])), 4) if cat_preds[i] else 0.0,
+                "calibrated_confidence": next((p["calibrated_confidence"] for p in sr["per_category"] if p["category"] == c), 0.0),
                 "score_contribution": next((p["score"] for p in sr["per_category"] if p["category"] == c), 0.0),
             } for i, c in enumerate(CAT)
         ],
@@ -260,6 +265,8 @@ def analyze_v2(text: str):
 class AnalyzeReq(BaseModel):
     text: str
     model: Literal["single", "ensemble", "v2"] = "ensemble"
+    use_calibration: bool = True  # v2 한정 (PDF 신뢰도 baseline)
+    use_synergy: bool = True       # v2 한정 (Inverted-U)
 
 
 app = FastAPI(title="SNS 광고 소비심리 자극 측정")
@@ -352,6 +359,22 @@ INDEX_HTML = """<!doctype html>
   button.primary:hover { transform: translateY(-1px); }
   button.primary:disabled { opacity: 0.5; cursor: wait; transform: none; }
   .shortcut { color: var(--text-mute); font-size: 12px; margin-left: 8px; }
+
+  /* Sub-options (v2 calibration / synergy) */
+  .subopts { display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    padding: 10px 16px; background: var(--accent-soft); border-radius: 12px;
+    margin-bottom: 16px; font-size: 12px; color: var(--text-soft); }
+  .subopts.hide { display: none; }
+  .subopts-label { font-weight: 600; color: var(--text); }
+  .subopts label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+    user-select: none; }
+  .subopts label:hover { color: var(--text); }
+  .subopts label small { color: var(--text-mute); }
+  .subopts input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
+  .subopts-hint { margin-left: auto; color: var(--text-mute); font-size: 11px; }
+  @media (max-width: 600px) {
+    .subopts-hint { display: none; }
+  }
 
   /* Examples */
   .examples { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 32px; }
@@ -509,6 +532,17 @@ INDEX_HTML = """<!doctype html>
     </div>
   </div>
 
+  <div class="subopts" id="v2subopts">
+    <span class="subopts-label">v2 옵션:</span>
+    <label title="PDF 신뢰도 baseline 보정. 카테고리별 baseline(권위 0.90 / 정체성 0.65 등)까지 prob를 끌어올림. ablation 결과 OFF가 MAE -1.03 개선">
+      <input type="checkbox" id="useCalibration" checked> 신뢰도 보정 <small>(PDF)</small>
+    </label>
+    <label title="Inverted-U 시너지: n=2 ×1.15 / n=3 ×1.25 / n≥4 ×0.90. PDF + 팀원 A 의견 융합. ablation 결과 유지 권장">
+      <input type="checkbox" id="useSynergy" checked> 시너지 보정 <small>(Inverted-U)</small>
+    </label>
+    <span class="subopts-hint">기본=PDF 원본. ablation 권장: 신뢰도 OFF</span>
+  </div>
+
   <div class="examples">
     <span class="chip">오늘만 50% 할인! 무료배송 ✨</span>
     <span class="chip">갓생러들의 필수템! 직장인 100명이 선택</span>
@@ -618,6 +652,18 @@ window.addEventListener('paste', e => {
 function getModelChoice() {
   return $('#v2toggle').checked ? 'v2' : 'ensemble';
 }
+function getV2Options() {
+  return {
+    use_calibration: $('#useCalibration').checked,
+    use_synergy: $('#useSynergy').checked,
+  };
+}
+// v2 토글에 따라 sub-options 표시/숨김
+function syncV2Subopts() {
+  $('#v2subopts').classList.toggle('hide', !$('#v2toggle').checked);
+}
+$('#v2toggle').addEventListener('change', syncV2Subopts);
+syncV2Subopts();
 
 async function analyzeImage(file) {
   const result = $('#result');
@@ -625,7 +671,12 @@ async function analyzeImage(file) {
   result.classList.add('show');
   result.innerHTML = '<div class="loading"><div class="spinner"></div><p>Qwen3-VL OCR + 7 카테고리 분류 중...</p></div>';
   try {
-    const fd = new FormData(); fd.append('file', file); fd.append('model', getModelChoice());
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('model', getModelChoice());
+    const opts = getV2Options();
+    fd.append('use_calibration', opts.use_calibration);
+    fd.append('use_synergy', opts.use_synergy);
     const r = await fetch('/api/analyze-image', { method: 'POST', body: fd });
     if (!r.ok) {
       const err = await r.json().catch(() => ({detail: 'HTTP ' + r.status}));
@@ -646,13 +697,14 @@ async function analyze() {
   const result = $('#result');
   if (!text) { result.classList.add('show'); result.innerHTML = '<div class="error">텍스트를 입력하세요</div>'; return; }
   const model = getModelChoice();
+  const body = { text, model, ...getV2Options() };
   $('#go').disabled = true; $('#go').textContent = '분석 중';
   result.classList.add('show');
   result.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   try {
     const r = await fetch('/api/analyze', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, model }),
+      body: JSON.stringify(body),
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     render(await r.json());
@@ -763,9 +815,14 @@ function renderV2(d) {
     ? `<div class="ocr-box"><div class="ocr-label">📷 추출된 텍스트</div><div class="ocr-text">${escapeHtml(d.ocr_text)}</div></div>`
     : '';
 
+  const opts = d.options || {use_calibration: true, use_synergy: true};
+  const optBadge = [
+    opts.use_calibration ? '신뢰도 보정 ON' : '신뢰도 OFF',
+    opts.use_synergy ? '시너지 ON' : '시너지 OFF',
+  ].join(' · ');
   const syn = d.n_positive_categories >= 1
-    ? `n=${d.n_positive_categories} 카테고리 × 시너지 ×${d.synergy_factor}`
-    : '양성 카테고리 없음';
+    ? `n=${d.n_positive_categories} 카테고리 × 시너지 ×${d.synergy_factor} · ${optBadge}`
+    : `양성 카테고리 없음 · ${optBadge}`;
 
   $('#result').innerHTML = `
     ${ocrBlock}
@@ -818,12 +875,17 @@ def api_analyze(req: AnalyzeReq):
     if len(text) > 4000:
         raise HTTPException(400, "text too long (max 4000 chars)")
     if req.model == "v2":
-        return analyze_v2(text)
+        return analyze_v2(text, use_calibration=req.use_calibration, use_synergy=req.use_synergy)
     return analyze(text, req.model)
 
 
 @app.post("/api/analyze-image")
-async def api_analyze_image(file: UploadFile = File(...), model: str = Form("ensemble")):
+async def api_analyze_image(
+    file: UploadFile = File(...),
+    model: str = Form("ensemble"),
+    use_calibration: bool = Form(True),
+    use_synergy: bool = Form(True),
+):
     if not (file.content_type or "").startswith("image/"):
         raise HTTPException(400, "이미지 파일이 아닙니다")
     data = await file.read()
@@ -842,7 +904,7 @@ async def api_analyze_image(file: UploadFile = File(...), model: str = Form("ens
     if not text.strip():
         raise HTTPException(422, "이미지에서 텍스트를 추출하지 못했습니다")
     if model == "v2":
-        result = analyze_v2(text)
+        result = analyze_v2(text, use_calibration=use_calibration, use_synergy=use_synergy)
     else:
         result = analyze(text, model if model in ("single", "ensemble") else "ensemble")
     result["ocr_text"] = text

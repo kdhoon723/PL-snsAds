@@ -125,61 +125,81 @@ class CategoryResult:
     score: float = field(init=False, default=0.0)
 
 
-def calculate_ad_score(category_results: list[CategoryResult]) -> dict:
+def calculate_ad_score(
+    category_results: list[CategoryResult],
+    use_calibration: bool = True,
+    use_synergy: bool = True,
+) -> dict:
     """광고 단위 최종 점수.
+
+    Args:
+      use_calibration: PDF baseline 신뢰도 보정 사용 (기본 True = PDF 원본).
+                       ablation 결과 False가 MAE -1.03 개선이지만 PDF 의도와 다름.
+      use_synergy: Inverted-U 시너지 보정 사용 (기본 True = PDF 원본).
+                   ablation 결과 False는 MAE +0.48 악화 (시너지 유지 권장).
 
     Pipeline:
       1. 양성 카테고리만 추출
-      2. 카테고리별 신뢰도 보정 → ĉ
+      2. (옵션) 카테고리별 신뢰도 보정 → ĉ (use_calibration=True)
       3. 점수 계산: w × ĉ × p × t
-      4. 시너지 보정 적용 (양성 카테고리 수 기준)
+      4. (옵션) 시너지 보정 적용 (use_synergy=True)
       5. 100점 만점 정규화
 
     Returns:
       {
         "final_score_100": float,    # 0~100점 (음수 가능 — 부정 방향)
-        "raw_score": float,           # 시너지 적용 후 합
+        "raw_score": float,
         "n_positive_categories": int,
         "synergy_factor": float,
+        "options": {"use_calibration": bool, "use_synergy": bool},
         "per_category": [{...}]
       }
     """
     positives = [c for c in category_results if c.is_positive]
     n_pos = len(positives)
-    synergy = synergy_factor(n_pos)
+    synergy = synergy_factor(n_pos) if use_synergy else 1.0
 
     per_cat = []
     raw_sum = 0.0
     for c in positives:
-        c.calibrated_confidence = calibrate_confidence(c.category, c.probability)
+        ĉ = calibrate_confidence(c.category, c.probability) if use_calibration else c.probability
+        c.calibrated_confidence = ĉ
         w = WEIGHTS.get(c.category, 0.0)
         p = POLARITY_SCORE.get(c.polarity or "긍정", 0.5)
         t = INTENSITY_SCORE.get(c.intensity or "보통", 1.0)
-        c.score = w * c.calibrated_confidence * p * t
+        c.score = w * ĉ * p * t
         raw_sum += c.score
         per_cat.append({
             "category": c.category,
             "weight": round(w, 4),
             "probability": round(c.probability, 4),
-            "calibrated_confidence": round(c.calibrated_confidence, 4),
+            "calibrated_confidence": round(ĉ, 4),
             "polarity": c.polarity,
             "intensity": c.intensity,
             "score": round(c.score, 4),
         })
 
     raw_score = raw_sum * synergy
-    final_100 = raw_score * 100  # 0~100 점수 (이론 최대: 1.0 × 1.25 × 100 = 125, 실제 < 50)
+    final_100 = raw_score * 100
+
+    opts_note = []
+    if use_calibration:
+        opts_note.append("신뢰도 보정 ON")
+    else:
+        opts_note.append("신뢰도 보정 OFF (ablation 권장)")
+    if use_synergy:
+        opts_note.append("시너지 ON")
+    else:
+        opts_note.append("시너지 OFF")
 
     return {
         "final_score_100": round(final_100, 2),
         "raw_score": round(raw_score, 4),
         "n_positive_categories": n_pos,
         "synergy_factor": synergy,
+        "options": {"use_calibration": use_calibration, "use_synergy": use_synergy},
         "per_category": per_cat,
-        "note": (
-            f"PDF + 팀원 A 융합 공식. {n_pos}개 양성 카테고리 × synergy={synergy}. "
-            f"Inverted-U는 Singla 7-category 한정 ad-hoc 보정."
-        ),
+        "note": f"PDF + 팀원 A 융합 공식. {n_pos}개 양성. {' / '.join(opts_note)}",
     }
 
 
