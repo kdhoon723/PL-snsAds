@@ -417,6 +417,22 @@ INDEX_HTML = """<!doctype html>
   .glossary-note { margin-top: 12px; padding: 10px 12px; background: var(--accent-soft);
     border-radius: 8px; font-size: 12px; color: var(--text-soft); line-height: 1.6; }
   .glossary-note b { color: var(--text); font-weight: 600; }
+  .gloss-sub { margin: 16px 0 8px; font-size: 13px; font-weight: 700; color: var(--text); }
+  .gloss-detail { margin-top: 10px; padding: 14px; background: var(--accent-soft);
+    border-radius: 10px; border: 1px solid var(--border); }
+  .gloss-detail-title { font-size: 14px; font-weight: 700; color: var(--text);
+    margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .gloss-tag { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-size: 12px;
+    font-weight: 600; color: var(--accent); background: var(--surface);
+    padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border); }
+  .gloss-detail p { font-size: 13px; color: var(--text-soft); line-height: 1.65;
+    margin-bottom: 7px; }
+  .gloss-detail p:last-child { margin-bottom: 0; }
+  .gloss-detail b { color: var(--text); font-weight: 600; }
+  .gloss-eg { padding: 7px 10px; background: var(--surface); border-radius: 6px;
+    font-size: 12px !important; border-left: 3px solid var(--text-mute); }
+  .gloss-result { padding: 8px 10px; background: var(--surface); border-radius: 6px;
+    border-left: 3px solid var(--accent); }
 
   /* Examples */
   .examples { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 32px; }
@@ -639,7 +655,23 @@ INDEX_HTML = """<!doctype html>
           <span class="gloss-sym">×100</span>
           <div class="gloss-desc"><b>점수 환산</b> — 0~1 사이 값을 보기 쉽게 0~100점으로.</div>
         </div>
-        <p class="glossary-note">⚠️ 이 점수 공식은 팀원이 만든 설계서(PDF) 기반입니다. 단 <b>시너지는 원본(1.0/1.15/1.30/1.45 계속 증가)과 다르게</b>, "자극이 너무 많으면 역효과"라는 의견을 반영해 3개에서 정점 찍고 내려가는 형태(1.0/1.15/1.25/0.90)로 바꿨습니다. 신뢰도 보정 ON/OFF, 시너지 ON/OFF는 위 체크박스로 직접 비교해볼 수 있습니다.</p>
+
+        <p class="gloss-sub">🔧 위 체크박스로 켜고 끌 수 있는 두 가지 보정</p>
+
+        <div class="gloss-detail">
+          <div class="gloss-detail-title">① 신뢰도 보정 <span class="gloss-tag">ĉ</span></div>
+          <p>모델은 카테고리마다 "이 자극이 있다"는 <b>확신도(0~1)</b>를 내놓습니다. 그런데 <b>학습 데이터가 적은 약한 카테고리(정체성·긴급성 등)는 실제로 자극이 있어도 확신도를 낮게 매기는 버릇</b>이 있어요.</p>
+          <p>그래서 설계서(PDF)는 카테고리마다 "최소 이만큼은 믿어주자"는 <b>기준선(baseline)</b>을 정해두고, 모델 확신도가 그보다 낮으면 기준선까지 끌어올립니다.</p>
+          <p class="gloss-eg">예) 정체성 기준선 0.65 → 모델이 0.40으로 봐도 0.65 근처로 ↑ &nbsp;/&nbsp; 권위 기준선 0.90 (원래 잘 잡히는 자극이라 높게)</p>
+          <p class="gloss-result">📊 <b>우리 실험 결과</b>: 모델이 이미 충분히 잘 학습돼서, 이 보정이 오히려 <b>과보정</b>(억지로 점수↑)이 되어 정확도를 떨어뜨렸습니다 (오차 6.83 → 5.80). → <b>OFF가 더 정확</b>. 단 PDF 원본을 보여주려고 기본은 ON.</p>
+        </div>
+
+        <div class="gloss-detail">
+          <div class="gloss-detail-title">② 시너지 보정 <span class="gloss-tag">synergy(n)</span></div>
+          <p>여러 자극을 <b>동시에</b> 쓰면 효과가 단순 합과 다릅니다. 2~3개를 같이 쓰면 서로 부추겨 효과가 커지지만, <b>너무 많이(4개 이상) 쓰면 "광고 티가 나서" 오히려 거부감</b>이 생겨요.</p>
+          <p class="gloss-eg">1개 ×1.0 · 2개 ×1.15 · <b>3개 ×1.25 (정점)</b> · 4개 이상 ×0.90 (감점)</p>
+          <p class="gloss-result">⚠️ <b>PDF 원본은 계속 증가</b>(1.0/1.15/<b>1.30/1.45</b>)였지만, "자극이 너무 많으면 역효과"라는 팀 의견을 반영해 <b>3개에서 정점 찍고 내려가는 형태</b>(1.0/1.15/<b>1.25/0.90</b>)로 바꿨습니다.</p>
+        </div>
       </div>
     </details>
   </div>
