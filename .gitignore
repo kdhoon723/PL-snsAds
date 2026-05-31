@@ -42,3 +42,7 @@ Thumbs.db
 .omc/
 .claude/
 CLAUDE.local.md
+
+# Playwright 임시 산출물
+.playwright-mcp/
+ui-*.png
