@@ -361,20 +361,25 @@ INDEX_HTML = """<!doctype html>
   .shortcut { color: var(--text-mute); font-size: 12px; margin-left: 8px; }
 
   /* Sub-options (v2 calibration / synergy) */
-  .subopts { display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  .subopts { display: flex; flex-direction: column; gap: 8px;
     padding: 10px 16px; background: var(--accent-soft); border-radius: 12px;
     margin-bottom: 16px; font-size: 12px; color: var(--text-soft); }
   .subopts.hide { display: none; }
+  .subopts-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
   .subopts-label { font-weight: 600; color: var(--text); }
   .subopts label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
     user-select: none; }
   .subopts label:hover { color: var(--text); }
   .subopts label small { color: var(--text-mute); }
   .subopts input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
-  .subopts-hint { margin-left: auto; color: var(--text-mute); font-size: 11px; }
-  @media (max-width: 600px) {
-    .subopts-hint { display: none; }
-  }
+  .formula-bar { display: flex; gap: 10px; align-items: center; padding-top: 8px;
+    border-top: 1px dashed var(--border); flex-wrap: wrap; }
+  .formula-label { color: var(--text-mute); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em; font-weight: 600; }
+  .formula-bar code { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-size: 12px; color: var(--text); background: var(--surface);
+    padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
+    white-space: nowrap; overflow-x: auto; max-width: 100%; }
 
   /* Examples */
   .examples { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 32px; }
@@ -533,14 +538,19 @@ INDEX_HTML = """<!doctype html>
   </div>
 
   <div class="subopts" id="v2subopts">
-    <span class="subopts-label">v2 옵션:</span>
-    <label title="PDF 신뢰도 baseline 보정. 카테고리별 baseline(권위 0.90 / 정체성 0.65 등)까지 prob를 끌어올림. ablation 결과 OFF가 MAE -1.03 개선">
-      <input type="checkbox" id="useCalibration" checked> 신뢰도 보정 <small>(PDF)</small>
-    </label>
-    <label title="Inverted-U 시너지: n=2 ×1.15 / n=3 ×1.25 / n≥4 ×0.90. PDF + 팀원 A 의견 융합. ablation 결과 유지 권장">
-      <input type="checkbox" id="useSynergy" checked> 시너지 보정 <small>(Inverted-U)</small>
-    </label>
-    <span class="subopts-hint">기본=PDF 원본. ablation 권장: 신뢰도 OFF</span>
+    <div class="subopts-row">
+      <span class="subopts-label">v2 옵션:</span>
+      <label title="PDF 신뢰도 baseline 보정. 카테고리별 baseline(권위 0.90 / 정체성 0.65 등)까지 prob를 끌어올림. ablation 결과 OFF가 MAE -1.03 개선">
+        <input type="checkbox" id="useCalibration" checked> 신뢰도 보정 <small>(PDF baseline)</small>
+      </label>
+      <label title="Inverted-U 시너지: n=2 ×1.15 / n=3 ×1.25 / n≥4 ×0.90. PDF 원본은 단조증가 (1.00/1.15/1.30/1.45)였으나 팀원 A 의견 융합해 Inverted-U로 수정">
+        <input type="checkbox" id="useSynergy" checked> 시너지 보정 <small>(Inverted-U, PDF 수정)</small>
+      </label>
+    </div>
+    <div class="formula-bar" id="formulaBar">
+      <span class="formula-label">현재 공식</span>
+      <code id="formulaDisplay">score = Σ(w · ĉ · p · t) × synergy(n) × 100</code>
+    </div>
   </div>
 
   <div class="examples">
@@ -664,6 +674,18 @@ function syncV2Subopts() {
 }
 $('#v2toggle').addEventListener('change', syncV2Subopts);
 syncV2Subopts();
+
+// 옵션 변경 시 현재 공식 갱신
+function updateFormula() {
+  const useCal = $('#useCalibration').checked;
+  const useSyn = $('#useSynergy').checked;
+  const conf = useCal ? 'ĉ' : 'prob';
+  const syn = useSyn ? ' × synergy(n)' : '';
+  $('#formulaDisplay').textContent = `score = Σ(w · ${conf} · p · t)${syn} × 100`;
+}
+$('#useCalibration').addEventListener('change', updateFormula);
+$('#useSynergy').addEventListener('change', updateFormula);
+updateFormula();
 
 async function analyzeImage(file) {
   const result = $('#result');
@@ -820,6 +842,9 @@ function renderV2(d) {
     opts.use_calibration ? '신뢰도 보정 ON' : '신뢰도 OFF',
     opts.use_synergy ? '시너지 ON' : '시너지 OFF',
   ].join(' · ');
+  const conf = opts.use_calibration ? 'ĉ' : 'prob';
+  const synExpr = opts.use_synergy ? ' × synergy(n)' : '';
+  const usedFormula = `Σ(w · ${conf} · p · t)${synExpr} × 100`;
   const syn = d.n_positive_categories >= 1
     ? `n=${d.n_positive_categories} 카테고리 × 시너지 ×${d.synergy_factor} · ${optBadge}`
     : `양성 카테고리 없음 · ${optBadge}`;
@@ -837,6 +862,10 @@ function renderV2(d) {
     <div class="meta">
       <span>↑긍정 ·중립 ↓부정 / ●●●강 ●●보통 ●약</span>
       <span>Cycle 50 앙상블 (F1 0.830)</span>
+    </div>
+    <div class="formula-bar" style="margin-top:12px;background:var(--accent-soft);padding:10px 14px;border-radius:10px;border:0">
+      <span class="formula-label">사용된 공식</span>
+      <code>${usedFormula}</code>
     </div>
     <details><summary>상세 JSON</summary><pre>${JSON.stringify(d, null, 2)}</pre></details>
   `;
