@@ -433,6 +433,23 @@ INDEX_HTML = """<!doctype html>
     font-size: 12px !important; border-left: 3px solid var(--text-mute); }
   .gloss-result { padding: 8px 10px; background: var(--surface); border-radius: 6px;
     border-left: 3px solid var(--accent); }
+  .gloss-exp-intro { font-size: 13px; color: var(--text-soft); line-height: 1.6; margin: 8px 0 10px; }
+  .gloss-exp-intro b { color: var(--text); font-weight: 600; }
+  .gloss-table-wrap { overflow-x: auto; margin-bottom: 10px; }
+  .gloss-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .gloss-table th { text-align: left; padding: 7px 10px; color: var(--text-mute);
+    font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .gloss-table td { padding: 8px 10px; border-bottom: 1px solid var(--border);
+    color: var(--text-soft); line-height: 1.45; }
+  .gloss-table td.num { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-weight: 700; color: var(--text); text-align: right; white-space: nowrap; }
+  .gloss-table td b { color: var(--text); font-weight: 600; }
+  .gloss-table tr.good td.num { color: var(--green); }
+  .gloss-table tr.good { background: color-mix(in srgb, var(--green) 7%, transparent); }
+  .gloss-table tr.bad td.num { color: var(--red); }
+  .gloss-table tr.same td.num { color: var(--text-mute); }
+  .gloss-table tbody tr:last-child td { border-bottom: 0; }
 
   /* Examples */
   .examples { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 32px; }
@@ -672,6 +689,25 @@ INDEX_HTML = """<!doctype html>
           <p class="gloss-eg">1개 ×1.0 · 2개 ×1.15 · <b>3개 ×1.25 (정점)</b> · 4개 이상 ×0.90 (감점)</p>
           <p class="gloss-result">⚠️ <b>PDF 원본은 계속 증가</b>(1.0/1.15/<b>1.30/1.45</b>)였지만, "자극이 너무 많으면 역효과"라는 팀 의견을 반영해 <b>3개에서 정점 찍고 내려가는 형태</b>(1.0/1.15/<b>1.25/0.90</b>)로 바꿨습니다.</p>
         </div>
+
+        <p class="gloss-sub">📊 어떤 항을 빼면 점수가 얼마나 정확해지나? (실험 결과)</p>
+        <p class="gloss-exp-intro">테스트 광고 <b>922개</b>로, 사람이 단 라벨로 계산한 <b>"정답 점수"</b>와 모델 점수가 평균 몇 점 차이 나는지 측정했습니다. <b>오차가 낮을수록 정확</b>합니다. 각 항을 하나씩 빼보고 오차가 어떻게 변하는지 비교:</p>
+        <div class="gloss-table-wrap">
+          <table class="gloss-table">
+            <thead>
+              <tr><th>공식</th><th>오차</th><th>해석</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>전체 (둘 다 ON, PDF 원본)</td><td class="num">6.83</td><td>기준</td></tr>
+              <tr class="good"><td><b>신뢰도 보정 빼면</b></td><td class="num">5.80</td><td>✅ 1.03점 더 정확 — <b>빼는 게 나음</b></td></tr>
+              <tr class="bad"><td>강도(t) 빼면</td><td class="num">8.12</td><td>❌ 가장 부정확 — <b>가장 중요한 항</b></td></tr>
+              <tr class="bad"><td>시너지 빼면</td><td class="num">7.31</td><td>❌ 0.48점 부정확 — 유지가 맞음</td></tr>
+              <tr class="same"><td>방향성(p) 빼면</td><td class="num">6.83</td><td>= 변화 없음 (광고 99%가 긍정이라)</td></tr>
+              <tr class="bad"><td>v1 옛날 단순 공식</td><td class="num">7.87</td><td>❌ 1.04점 부정확</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="gloss-result"><b>결론</b>: 신뢰도 보정만 빼고, 나머지(강도·시너지·방향성)는 그대로 두는 게 가장 정확합니다. 강도가 점수를 가장 크게 좌우하고, 방향성은 광고가 거의 다 "긍정"이라 영향이 없습니다.</p>
       </div>
     </details>
   </div>
