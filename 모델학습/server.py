@@ -280,6 +280,8 @@ INDEX_HTML = """<!doctype html>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script>
 <style>
   :root {
     --bg: #fafafa;
@@ -380,6 +382,41 @@ INDEX_HTML = """<!doctype html>
     font-size: 12px; color: var(--text); background: var(--surface);
     padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
     white-space: nowrap; overflow-x: auto; max-width: 100%; }
+  .formula-math { color: var(--text); font-size: 14px; padding: 4px 0;
+    overflow-x: auto; max-width: 100%; }
+  .formula-math .katex { font-size: 1.0em; }
+  .formula-raw { margin-left: 6px; }
+  .formula-raw summary { cursor: pointer; color: var(--text-mute); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.05em; }
+  .formula-raw summary:hover { color: var(--text-soft); }
+  .formula-raw[open] code { display: inline-block; margin-top: 4px; }
+
+  /* Glossary (각 항 설명) */
+  .glossary { margin-top: 4px; border-top: 1px dashed var(--border); padding-top: 8px; }
+  .glossary > summary { cursor: pointer; color: var(--text-soft); font-size: 12px;
+    font-weight: 600; user-select: none; list-style: none; display: flex;
+    align-items: center; gap: 6px; }
+  .glossary > summary::-webkit-details-marker { display: none; }
+  .glossary > summary::before { content: '▸'; transition: transform 0.15s; color: var(--text-mute); }
+  .glossary[open] > summary::before { transform: rotate(90deg); }
+  .glossary > summary:hover { color: var(--text); }
+  .glossary-body { padding: 12px 4px 4px; }
+  .glossary-intro { font-size: 13px; color: var(--text-soft); line-height: 1.6;
+    margin-bottom: 12px; }
+  .glossary-intro b { color: var(--text); }
+  .gloss-item { display: flex; gap: 12px; padding: 8px 0;
+    border-bottom: 1px solid var(--border); align-items: flex-start; }
+  .gloss-item:last-of-type { border-bottom: 0; }
+  .gloss-sym { flex-shrink: 0; min-width: 64px; font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-size: 14px; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); padding: 3px 8px; border-radius: 6px; text-align: center; }
+  .gloss-desc { font-size: 13px; color: var(--text); line-height: 1.55; }
+  .gloss-desc b { font-weight: 600; }
+  .gloss-val { display: block; margin-top: 3px; font-size: 12px; color: var(--text-soft); }
+  .gloss-val small { color: var(--text-mute); }
+  .glossary-note { margin-top: 12px; padding: 10px 12px; background: var(--accent-soft);
+    border-radius: 8px; font-size: 12px; color: var(--text-soft); line-height: 1.6; }
+  .glossary-note b { color: var(--text); font-weight: 600; }
 
   /* Examples */
   .examples { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 32px; }
@@ -549,8 +586,62 @@ INDEX_HTML = """<!doctype html>
     </div>
     <div class="formula-bar" id="formulaBar">
       <span class="formula-label">현재 공식</span>
-      <code id="formulaDisplay">score = Σ(w · ĉ · p · t) × synergy(n) × 100</code>
+      <div id="formulaDisplay" class="formula-math"></div>
+      <details class="formula-raw">
+        <summary>LaTeX</summary>
+        <code id="formulaTex"></code>
+      </details>
     </div>
+    <details class="glossary">
+      <summary>📖 각 항이 무슨 뜻이야? (펼쳐서 보기)</summary>
+      <div class="glossary-body">
+        <p class="glossary-intro">광고 하나의 점수는 <b>탐지된 카테고리마다 점수를 매겨 더한 뒤, 시너지로 보정</b>해서 0~100점으로 만듭니다. 각 항의 뜻:</p>
+        <div class="gloss-item">
+          <span class="gloss-sym">w</span>
+          <div class="gloss-desc">
+            <b>카테고리 가중치</b> — 그 자극이 실제 구매에 미치는 영향력. 논문 메타분석 수치로 정함.
+            <span class="gloss-val">권위 0.221 · 증명 0.159 · 정체성 0.156 · 호혜 0.151 · 희소 0.126 · 긴급 0.096 · 가격 0.091 <small>(합 1.0)</small></span>
+          </div>
+        </div>
+        <div class="gloss-item">
+          <span class="gloss-sym">ĉ</span>
+          <div class="gloss-desc">
+            <b>보정된 확신도 (0~1)</b> — 모델이 "이 광고에 이 자극이 있다"고 얼마나 확신하는지.
+            <span class="gloss-val">신뢰도 보정 ON이면, 잘 안 잡히는 약한 카테고리(정체성 등)를 기준선까지 끌어올림. <small>OFF면 모델 원본 확률 그대로 사용 → 실험 결과 OFF가 더 정확했음</small></span>
+          </div>
+        </div>
+        <div class="gloss-item">
+          <span class="gloss-sym">p</span>
+          <div class="gloss-desc">
+            <b>방향성</b> — 광고가 어느 쪽으로 미는지.
+            <span class="gloss-val">긍정(사라고 권유) +1.0 · 중립(정보 안내) +0.5 · 부정(하지 말라고 억제, 공익광고) −1.0</span>
+          </div>
+        </div>
+        <div class="gloss-item">
+          <span class="gloss-sym">t</span>
+          <div class="gloss-desc">
+            <b>강도</b> — 그 자극이 얼마나 센지.
+            <span class="gloss-val">강(70% 할인·100명 한정 등 구체적·극단적) 1.5 · 보통 1.0 · 약(추상적 표현) 0.5</span>
+          </div>
+        </div>
+        <div class="gloss-item">
+          <span class="gloss-sym">synergy(n)</span>
+          <div class="gloss-desc">
+            <b>시너지 보정</b> — 여러 자극을 동시에 쓰면 효과가 달라짐.
+            <span class="gloss-val">1개 ×1.0 · 2개 ×1.15 · 3개 ×1.25 (같이 쓰면 상승) · 4개↑ ×0.90 (너무 많으면 오히려 거부감 ↓)</span>
+          </div>
+        </div>
+        <div class="gloss-item">
+          <span class="gloss-sym">n</span>
+          <div class="gloss-desc"><b>탐지된 양성 카테고리 수</b> — 이 광고에서 발견된 자극 종류의 개수.</div>
+        </div>
+        <div class="gloss-item">
+          <span class="gloss-sym">×100</span>
+          <div class="gloss-desc"><b>점수 환산</b> — 0~1 사이 값을 보기 쉽게 0~100점으로.</div>
+        </div>
+        <p class="glossary-note">⚠️ 이 점수 공식은 팀원이 만든 설계서(PDF) 기반입니다. 단 <b>시너지는 원본(1.0/1.15/1.30/1.45 계속 증가)과 다르게</b>, "자극이 너무 많으면 역효과"라는 의견을 반영해 3개에서 정점 찍고 내려가는 형태(1.0/1.15/1.25/0.90)로 바꿨습니다. 신뢰도 보정 ON/OFF, 시너지 ON/OFF는 위 체크박스로 직접 비교해볼 수 있습니다.</p>
+      </div>
+    </details>
   </div>
 
   <div class="examples">
@@ -675,17 +766,38 @@ function syncV2Subopts() {
 $('#v2toggle').addEventListener('change', syncV2Subopts);
 syncV2Subopts();
 
-// 옵션 변경 시 현재 공식 갱신
+// 옵션 변경 시 현재 공식 갱신 (KaTeX 렌더링)
+function buildFormulaTex(useCal, useSyn) {
+  const conf = useCal ? '\\hat{c}_i' : '\\text{prob}_i';
+  const syn = useSyn ? '\\cdot \\text{synergy}(n) ' : '';
+  return `\\text{score} = \\sum_{i \\in \\text{positive}} w_i \\cdot ${conf} \\cdot p_i \\cdot t_i ${syn}\\times 100`;
+}
 function updateFormula() {
   const useCal = $('#useCalibration').checked;
   const useSyn = $('#useSynergy').checked;
-  const conf = useCal ? 'ĉ' : 'prob';
-  const syn = useSyn ? ' × synergy(n)' : '';
-  $('#formulaDisplay').textContent = `score = Σ(w · ${conf} · p · t)${syn} × 100`;
+  const tex = buildFormulaTex(useCal, useSyn);
+  const el = $('#formulaDisplay');
+  $('#formulaTex').textContent = tex;
+  if (window.katex) {
+    try {
+      katex.render(tex, el, { throwOnError: false, displayMode: false });
+    } catch (e) {
+      el.textContent = tex;
+    }
+  } else {
+    el.textContent = tex;  // KaTeX 로딩 전 fallback
+  }
 }
 $('#useCalibration').addEventListener('change', updateFormula);
 $('#useSynergy').addEventListener('change', updateFormula);
-updateFormula();
+// KaTeX는 defer 로딩 — DOMContentLoaded 후 렌더링
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', updateFormula);
+} else {
+  // 이미 로드됐으면 KaTeX 로딩 대기
+  if (window.katex) updateFormula();
+  else window.addEventListener('load', updateFormula);
+}
 
 async function analyzeImage(file) {
   const result = $('#result');
@@ -842,9 +954,7 @@ function renderV2(d) {
     opts.use_calibration ? '신뢰도 보정 ON' : '신뢰도 OFF',
     opts.use_synergy ? '시너지 ON' : '시너지 OFF',
   ].join(' · ');
-  const conf = opts.use_calibration ? 'ĉ' : 'prob';
-  const synExpr = opts.use_synergy ? ' × synergy(n)' : '';
-  const usedFormula = `Σ(w · ${conf} · p · t)${synExpr} × 100`;
+  const usedFormulaTex = buildFormulaTex(opts.use_calibration, opts.use_synergy);
   const syn = d.n_positive_categories >= 1
     ? `n=${d.n_positive_categories} 카테고리 × 시너지 ×${d.synergy_factor} · ${optBadge}`
     : `양성 카테고리 없음 · ${optBadge}`;
@@ -865,10 +975,21 @@ function renderV2(d) {
     </div>
     <div class="formula-bar" style="margin-top:12px;background:var(--accent-soft);padding:10px 14px;border-radius:10px;border:0">
       <span class="formula-label">사용된 공식</span>
-      <code>${usedFormula}</code>
+      <div id="usedFormulaMath" class="formula-math"></div>
+      <details class="formula-raw">
+        <summary>LaTeX</summary>
+        <code>${usedFormulaTex}</code>
+      </details>
     </div>
     <details><summary>상세 JSON</summary><pre>${JSON.stringify(d, null, 2)}</pre></details>
   `;
+  // 사용된 공식 KaTeX 렌더
+  if (window.katex) {
+    try { katex.render(usedFormulaTex, $('#usedFormulaMath'), { throwOnError: false, displayMode: false }); }
+    catch (e) { $('#usedFormulaMath').textContent = usedFormulaTex; }
+  } else {
+    $('#usedFormulaMath').textContent = usedFormulaTex;
+  }
 }
 
 function escapeHtml(s) {
