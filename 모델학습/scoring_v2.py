@@ -59,6 +59,8 @@ INTENSITY_SCORE = {
 
 # ============================================================
 # 3. 신뢰도 보정 baseline (PDF 설계 — 임의 값)
+#    ⚠️ DEPRECATED: ablation 결과 과보정으로 오차 악화 (MAE 6.83→5.80).
+#    점수 계산(calculate_ad_score)에서 더 이상 사용하지 않음. 참고용으로만 유지.
 # ============================================================
 CONFIDENCE_BASELINE = {
     "권위_신뢰":     0.90,
@@ -127,23 +129,21 @@ class CategoryResult:
 
 def calculate_ad_score(
     category_results: list[CategoryResult],
-    use_calibration: bool = True,
     use_synergy: bool = True,
 ) -> dict:
     """광고 단위 최종 점수.
 
+    신뢰도 보정(ĉ)은 제거됨 — ablation 결과 과보정으로 오차 악화 (MAE 6.83→5.80).
+    모델 원본 확률(prob)을 그대로 사용.
+
     Args:
-      use_calibration: PDF baseline 신뢰도 보정 사용 (기본 True = PDF 원본).
-                       ablation 결과 False가 MAE -1.03 개선이지만 PDF 의도와 다름.
-      use_synergy: Inverted-U 시너지 보정 사용 (기본 True = PDF 원본).
-                   ablation 결과 False는 MAE +0.48 악화 (시너지 유지 권장).
+      use_synergy: Inverted-U 시너지 보정 사용 (기본 True). False는 MAE +0.48 악화.
 
     Pipeline:
       1. 양성 카테고리만 추출
-      2. (옵션) 카테고리별 신뢰도 보정 → ĉ (use_calibration=True)
-      3. 점수 계산: w × ĉ × p × t
-      4. (옵션) 시너지 보정 적용 (use_synergy=True)
-      5. 100점 만점 정규화
+      2. 점수 계산: w × prob × p × t  (신뢰도 보정 없음)
+      3. (옵션) 시너지 보정 적용 (use_synergy=True)
+      4. 100점 만점 정규화
 
     Returns:
       {
@@ -151,7 +151,7 @@ def calculate_ad_score(
         "raw_score": float,
         "n_positive_categories": int,
         "synergy_factor": float,
-        "options": {"use_calibration": bool, "use_synergy": bool},
+        "options": {"use_synergy": bool},
         "per_category": [{...}]
       }
     """
@@ -162,18 +162,17 @@ def calculate_ad_score(
     per_cat = []
     raw_sum = 0.0
     for c in positives:
-        ĉ = calibrate_confidence(c.category, c.probability) if use_calibration else c.probability
-        c.calibrated_confidence = ĉ
+        prob = c.probability
+        c.calibrated_confidence = prob  # 호환용: 보정 없이 원본 확률
         w = WEIGHTS.get(c.category, 0.0)
         p = POLARITY_SCORE.get(c.polarity or "긍정", 0.5)
         t = INTENSITY_SCORE.get(c.intensity or "보통", 1.0)
-        c.score = w * ĉ * p * t
+        c.score = w * prob * p * t
         raw_sum += c.score
         per_cat.append({
             "category": c.category,
             "weight": round(w, 4),
-            "probability": round(c.probability, 4),
-            "calibrated_confidence": round(ĉ, 4),
+            "probability": round(prob, 4),
             "polarity": c.polarity,
             "intensity": c.intensity,
             "score": round(c.score, 4),
@@ -182,24 +181,16 @@ def calculate_ad_score(
     raw_score = raw_sum * synergy
     final_100 = raw_score * 100
 
-    opts_note = []
-    if use_calibration:
-        opts_note.append("신뢰도 보정 ON")
-    else:
-        opts_note.append("신뢰도 보정 OFF (ablation 권장)")
-    if use_synergy:
-        opts_note.append("시너지 ON")
-    else:
-        opts_note.append("시너지 OFF")
+    syn_note = "시너지 ON" if use_synergy else "시너지 OFF"
 
     return {
         "final_score_100": round(final_100, 2),
         "raw_score": round(raw_score, 4),
         "n_positive_categories": n_pos,
         "synergy_factor": synergy,
-        "options": {"use_calibration": use_calibration, "use_synergy": use_synergy},
+        "options": {"use_synergy": use_synergy},
         "per_category": per_cat,
-        "note": f"PDF + 팀원 A 융합 공식. {n_pos}개 양성. {' / '.join(opts_note)}",
+        "note": f"점수 공식 (신뢰도 보정 제거). {n_pos}개 양성. {syn_note}",
     }
 
 
@@ -245,7 +236,7 @@ if __name__ == "__main__":
     print(f"양성 카테고리: {result['n_positive_categories']} → 시너지 ×{result['synergy_factor']}")
     print(f"\n카테고리별 점수:")
     for c in result["per_category"]:
-        print(f"  {c['category']:<14} w={c['weight']:.3f} × ĉ={c['calibrated_confidence']:.3f} "
+        print(f"  {c['category']:<14} w={c['weight']:.3f} × prob={c['probability']:.3f} "
               f"× p({c['polarity']})={POLARITY_SCORE[c['polarity']]:+.1f} "
               f"× t({c['intensity']})={INTENSITY_SCORE[c['intensity']]:.1f} = {c['score']:+.4f}")
     print(f"\n💯 최종 점수: {result['final_score_100']}/100")

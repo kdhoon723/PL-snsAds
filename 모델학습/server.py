@@ -195,11 +195,11 @@ def analyze(text: str, model_key: str):
 
 
 @torch.no_grad()
-def analyze_v2(text: str, use_calibration: bool = True, use_synergy: bool = True):
-    """v2 Multitask 앙상블 (Cycle 50 4-모델) + PDF + 팀원 A 점수 공식.
+def analyze_v2(text: str, use_synergy: bool = True):
+    """v2 Multitask 앙상블 (Cycle 50 4-모델) + 점수 공식.
 
-    use_calibration: PDF baseline 신뢰도 보정 (기본 True = PDF 원본)
-    use_synergy: Inverted-U 시너지 보정 (기본 True = PDF 원본)
+    신뢰도 보정은 제거됨 (ablation 결과 과보정으로 오차 악화). 모델 원본 확률 사용.
+    use_synergy: Inverted-U 시너지 보정 (기본 True)
     """
     if not V2_MODELS:
         load_v2()
@@ -235,12 +235,12 @@ def analyze_v2(text: str, use_calibration: bool = True, use_synergy: bool = True
             polarity=POLARITY[pol_preds[i]] if cat_preds[i] else None,
             intensity=INTENSITY[int_preds[i]] if cat_preds[i] else None,
         ))
-    sr = calculate_ad_score(results, use_calibration=use_calibration, use_synergy=use_synergy)
+    sr = calculate_ad_score(results, use_synergy=use_synergy)
 
     return {
         "version": "v2",
         "text": text,
-        "model": "v2 보정 점수 (PDF) — Cycle 50 multitask 4-앙상블 (F1 0.8296)",
+        "model": "v2 점수 (Cycle 50 multitask 4-앙상블, F1 0.8296)",
         "final_score_100": sr["final_score_100"],
         "raw_score": sr["raw_score"],
         "n_positive_categories": sr["n_positive_categories"],
@@ -255,7 +255,6 @@ def analyze_v2(text: str, use_calibration: bool = True, use_synergy: bool = True
                 "weight": WEIGHTS[c],
                 "polarity": POLARITY[pol_preds[i]] if cat_preds[i] else None,
                 "intensity": INTENSITY[int_preds[i]] if cat_preds[i] else None,
-                "calibrated_confidence": next((p["calibrated_confidence"] for p in sr["per_category"] if p["category"] == c), 0.0),
                 "score_contribution": next((p["score"] for p in sr["per_category"] if p["category"] == c), 0.0),
             } for i, c in enumerate(CAT)
         ],
@@ -265,7 +264,6 @@ def analyze_v2(text: str, use_calibration: bool = True, use_synergy: bool = True
 class AnalyzeReq(BaseModel):
     text: str
     model: Literal["single", "ensemble", "v2"] = "ensemble"
-    use_calibration: bool = True  # v2 한정 (PDF 신뢰도 baseline)
     use_synergy: bool = True       # v2 한정 (Inverted-U)
 
 
@@ -369,6 +367,7 @@ INDEX_HTML = """<!doctype html>
   .subopts.hide { display: none; }
   .subopts-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
   .subopts-label { font-weight: 600; color: var(--text); }
+  .subopts-hint { color: var(--text-mute); font-size: 11px; }
   .subopts label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
     user-select: none; }
   .subopts label:hover { color: var(--text); }
@@ -592,9 +591,9 @@ INDEX_HTML = """<!doctype html>
           <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8L9.41 17.34a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
         </svg>
       </button>
-      <label class="toggle" title="v2: PDF 점수 공식 (학술 가중치 × 신뢰도 보정 × 방향성 × 강도 × 시너지). 카테고리 F1 0.830 (v1 0.787 대비 +0.043)">
+      <label class="toggle" title="v2: 점수 공식 (학술 가중치 × 모델 확률 × 방향성 × 강도 × 시너지). 카테고리 F1 0.830 (v1 0.787 대비 +0.043)">
         <input type="checkbox" id="v2toggle" checked>
-        <span>보정 점수 (PDF)</span>
+        <span>점수 공식 (v2)</span>
       </label>
       <span class="shortcut" id="inputHint" style="flex:1; text-align:right">⌘+Enter</span>
       <button class="primary" id="go">분석</button>
@@ -610,12 +609,10 @@ INDEX_HTML = """<!doctype html>
   <div class="subopts" id="v2subopts">
     <div class="subopts-row">
       <span class="subopts-label">v2 옵션:</span>
-      <label title="PDF 신뢰도 baseline 보정. 카테고리별 baseline(권위 0.90 / 정체성 0.65 등)까지 prob를 끌어올림. ablation 결과 OFF가 MAE -1.03 개선">
-        <input type="checkbox" id="useCalibration" checked> 신뢰도 보정 <small>(PDF baseline)</small>
+      <label title="Inverted-U 시너지: n=2 ×1.15 / n=3 ×1.25 / n≥4 ×0.90. PDF 원본은 단조증가 (1.00/1.15/1.30/1.45)였으나 '자극이 너무 많으면 역효과' 의견 반영해 Inverted-U로 수정">
+        <input type="checkbox" id="useSynergy" checked> 시너지 보정 <small>(Inverted-U)</small>
       </label>
-      <label title="Inverted-U 시너지: n=2 ×1.15 / n=3 ×1.25 / n≥4 ×0.90. PDF 원본은 단조증가 (1.00/1.15/1.30/1.45)였으나 팀원 A 의견 융합해 Inverted-U로 수정">
-        <input type="checkbox" id="useSynergy" checked> 시너지 보정 <small>(Inverted-U, PDF 수정)</small>
-      </label>
+      <span class="subopts-hint">신뢰도 보정은 실험 결과 제거됨 (과보정)</span>
     </div>
     <div class="formula-bar" id="formulaBar">
       <span class="formula-label">현재 공식</span>
@@ -637,10 +634,10 @@ INDEX_HTML = """<!doctype html>
           </div>
         </div>
         <div class="gloss-item">
-          <span class="gloss-sym">ĉ</span>
+          <span class="gloss-sym">prob</span>
           <div class="gloss-desc">
-            <b>보정된 확신도 (0~1)</b> — 모델이 "이 광고에 이 자극이 있다"고 얼마나 확신하는지.
-            <span class="gloss-val">신뢰도 보정 ON이면, 잘 안 잡히는 약한 카테고리(정체성 등)를 기준선까지 끌어올림. <small>OFF면 모델 원본 확률 그대로 사용 → 실험 결과 OFF가 더 정확했음</small></span>
+            <b>모델 확신도 (0~1)</b> — 모델이 "이 광고에 이 자극이 있다"고 얼마나 확신하는지. 그대로 사용합니다.
+            <span class="gloss-val"><small>예전엔 약한 카테고리를 기준선까지 끌어올리는 '신뢰도 보정'이 있었지만, 실험 결과 과보정으로 오히려 부정확해져 <b>제거</b>했습니다 (아래 ① 참고).</small></span>
           </div>
         </div>
         <div class="gloss-item">
@@ -673,18 +670,17 @@ INDEX_HTML = """<!doctype html>
           <div class="gloss-desc"><b>점수 환산</b> — 0~1 사이 값을 보기 쉽게 0~100점으로.</div>
         </div>
 
-        <p class="gloss-sub">🔧 위 체크박스로 켜고 끌 수 있는 두 가지 보정</p>
+        <p class="gloss-sub">🔧 보정에 관한 두 가지 결정</p>
 
         <div class="gloss-detail">
-          <div class="gloss-detail-title">① 신뢰도 보정 <span class="gloss-tag">ĉ</span></div>
-          <p>모델은 카테고리마다 "이 자극이 있다"는 <b>확신도(0~1)</b>를 내놓습니다. 그런데 <b>학습 데이터가 적은 약한 카테고리(정체성·긴급성 등)는 실제로 자극이 있어도 확신도를 낮게 매기는 버릇</b>이 있어요.</p>
-          <p>그래서 설계서(PDF)는 카테고리마다 "최소 이만큼은 믿어주자"는 <b>기준선(baseline)</b>을 정해두고, 모델 확신도가 그보다 낮으면 기준선까지 끌어올립니다.</p>
-          <p class="gloss-eg">예) 정체성 기준선 0.65 → 모델이 0.40으로 봐도 0.65 근처로 ↑ &nbsp;/&nbsp; 권위 기준선 0.90 (원래 잘 잡히는 자극이라 높게)</p>
-          <p class="gloss-result">📊 <b>우리 실험 결과</b>: 모델이 이미 충분히 잘 학습돼서, 이 보정이 오히려 <b>과보정</b>(억지로 점수↑)이 되어 정확도를 떨어뜨렸습니다 (오차 6.83 → 5.80). → <b>OFF가 더 정확</b>. 단 PDF 원본을 보여주려고 기본은 ON.</p>
+          <div class="gloss-detail-title">① 신뢰도 보정 <span class="gloss-tag">제거함</span></div>
+          <p>원래 설계서(PDF)에는 <b>신뢰도 보정</b>이 있었습니다. 모델은 카테고리마다 확신도(0~1)를 내놓는데, <b>학습 데이터가 적은 약한 카테고리(정체성·긴급성 등)는 실제로 자극이 있어도 확신도를 낮게 매기는 버릇</b>이 있어서, 카테고리마다 "최소 이만큼은 믿어주자"는 기준선까지 끌어올리는 보정이었어요.</p>
+          <p class="gloss-eg">예) 정체성 기준선 0.65 → 모델이 0.40으로 봐도 0.65 근처로 ↑</p>
+          <p class="gloss-result">📊 <b>하지만 실험 결과</b>: 모델이 이미 충분히 잘 학습돼서, 이 보정이 오히려 <b>과보정</b>(억지로 점수↑)이 되어 정확도를 떨어뜨렸습니다 (오차 6.83 → 5.80). → <b>그래서 신뢰도 보정은 빼고, 모델 원본 확률(prob)을 그대로 씁니다.</b></p>
         </div>
 
         <div class="gloss-detail">
-          <div class="gloss-detail-title">② 시너지 보정 <span class="gloss-tag">synergy(n)</span></div>
+          <div class="gloss-detail-title">② 시너지 보정 <span class="gloss-tag">유지함</span></div>
           <p>여러 자극을 <b>동시에</b> 쓰면 효과가 단순 합과 다릅니다. 2~3개를 같이 쓰면 서로 부추겨 효과가 커지지만, <b>너무 많이(4개 이상) 쓰면 "광고 티가 나서" 오히려 거부감</b>이 생겨요.</p>
           <p class="gloss-eg">1개 ×1.0 · 2개 ×1.15 · <b>3개 ×1.25 (정점)</b> · 4개 이상 ×0.90 (감점)</p>
           <p class="gloss-result">⚠️ <b>PDF 원본은 계속 증가</b>(1.0/1.15/<b>1.30/1.45</b>)였지만, "자극이 너무 많으면 역효과"라는 팀 의견을 반영해 <b>3개에서 정점 찍고 내려가는 형태</b>(1.0/1.15/<b>1.25/0.90</b>)로 바꿨습니다.</p>
@@ -699,7 +695,7 @@ INDEX_HTML = """<!doctype html>
             </thead>
             <tbody>
               <tr><td>전체 (둘 다 ON, PDF 원본)</td><td class="num">6.83</td><td>기준</td></tr>
-              <tr class="good"><td><b>신뢰도 보정 빼면</b></td><td class="num">5.80</td><td>✅ 1.03점 더 정확 — <b>빼는 게 나음</b></td></tr>
+              <tr class="good"><td><b>신뢰도 보정 빼면</b></td><td class="num">5.80</td><td>✅ 1.03점 더 정확 — <b>이걸 채택 (지금 공식)</b></td></tr>
               <tr class="bad"><td>강도(t) 빼면</td><td class="num">8.12</td><td>❌ 가장 부정확 — <b>가장 중요한 항</b></td></tr>
               <tr class="bad"><td>시너지 빼면</td><td class="num">7.31</td><td>❌ 0.48점 부정확 — 유지가 맞음</td></tr>
               <tr class="same"><td>방향성(p) 빼면</td><td class="num">6.83</td><td>= 변화 없음 (광고 99%가 긍정이라)</td></tr>
@@ -823,7 +819,6 @@ function getModelChoice() {
 }
 function getV2Options() {
   return {
-    use_calibration: $('#useCalibration').checked,
     use_synergy: $('#useSynergy').checked,
   };
 }
@@ -834,16 +829,13 @@ function syncV2Subopts() {
 $('#v2toggle').addEventListener('change', syncV2Subopts);
 syncV2Subopts();
 
-// 옵션 변경 시 현재 공식 갱신 (KaTeX 렌더링)
-function buildFormulaTex(useCal, useSyn) {
-  const conf = useCal ? '\\hat{c}_i' : '\\text{prob}_i';
+// 옵션 변경 시 현재 공식 갱신 (KaTeX 렌더링). 신뢰도 보정 제거 → prob 고정.
+function buildFormulaTex(useSyn) {
   const syn = useSyn ? '\\cdot \\text{synergy}(n) ' : '';
-  return `\\text{score} = \\sum_{i \\in \\text{positive}} w_i \\cdot ${conf} \\cdot p_i \\cdot t_i ${syn}\\times 100`;
+  return `\\text{score} = \\sum_{i \\in \\text{positive}} w_i \\cdot \\text{prob}_i \\cdot p_i \\cdot t_i ${syn}\\times 100`;
 }
 function updateFormula() {
-  const useCal = $('#useCalibration').checked;
-  const useSyn = $('#useSynergy').checked;
-  const tex = buildFormulaTex(useCal, useSyn);
+  const tex = buildFormulaTex($('#useSynergy').checked);
   const el = $('#formulaDisplay');
   $('#formulaTex').textContent = tex;
   if (window.katex) {
@@ -856,7 +848,6 @@ function updateFormula() {
     el.textContent = tex;  // KaTeX 로딩 전 fallback
   }
 }
-$('#useCalibration').addEventListener('change', updateFormula);
 $('#useSynergy').addEventListener('change', updateFormula);
 // KaTeX는 defer 로딩 — DOMContentLoaded 후 렌더링
 if (document.readyState === 'loading') {
@@ -877,7 +868,6 @@ async function analyzeImage(file) {
     fd.append('file', file);
     fd.append('model', getModelChoice());
     const opts = getV2Options();
-    fd.append('use_calibration', opts.use_calibration);
     fd.append('use_synergy', opts.use_synergy);
     const r = await fetch('/api/analyze-image', { method: 'POST', body: fd });
     if (!r.ok) {
@@ -1017,12 +1007,9 @@ function renderV2(d) {
     ? `<div class="ocr-box"><div class="ocr-label">📷 추출된 텍스트</div><div class="ocr-text">${escapeHtml(d.ocr_text)}</div></div>`
     : '';
 
-  const opts = d.options || {use_calibration: true, use_synergy: true};
-  const optBadge = [
-    opts.use_calibration ? '신뢰도 보정 ON' : '신뢰도 OFF',
-    opts.use_synergy ? '시너지 ON' : '시너지 OFF',
-  ].join(' · ');
-  const usedFormulaTex = buildFormulaTex(opts.use_calibration, opts.use_synergy);
+  const opts = d.options || {use_synergy: true};
+  const optBadge = opts.use_synergy ? '시너지 ON' : '시너지 OFF';
+  const usedFormulaTex = buildFormulaTex(opts.use_synergy);
   const syn = d.n_positive_categories >= 1
     ? `n=${d.n_positive_categories} 카테고리 × 시너지 ×${d.synergy_factor} · ${optBadge}`
     : `양성 카테고리 없음 · ${optBadge}`;
@@ -1093,7 +1080,7 @@ def api_analyze(req: AnalyzeReq):
     if len(text) > 4000:
         raise HTTPException(400, "text too long (max 4000 chars)")
     if req.model == "v2":
-        return analyze_v2(text, use_calibration=req.use_calibration, use_synergy=req.use_synergy)
+        return analyze_v2(text, use_synergy=req.use_synergy)
     return analyze(text, req.model)
 
 
@@ -1101,7 +1088,6 @@ def api_analyze(req: AnalyzeReq):
 async def api_analyze_image(
     file: UploadFile = File(...),
     model: str = Form("ensemble"),
-    use_calibration: bool = Form(True),
     use_synergy: bool = Form(True),
 ):
     if not (file.content_type or "").startswith("image/"):
@@ -1122,7 +1108,7 @@ async def api_analyze_image(
     if not text.strip():
         raise HTTPException(422, "이미지에서 텍스트를 추출하지 못했습니다")
     if model == "v2":
-        result = analyze_v2(text, use_calibration=use_calibration, use_synergy=use_synergy)
+        result = analyze_v2(text, use_synergy=use_synergy)
     else:
         result = analyze(text, model if model in ("single", "ensemble") else "ensemble")
     result["ocr_text"] = text
