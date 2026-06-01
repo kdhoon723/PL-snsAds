@@ -31,10 +31,10 @@ from typing import Optional
 # ============================================================
 R_VALUES = {
     "권위_신뢰":     0.44,   # Pornpitakpan (2004)
-    "사회적_증명":   0.317,  # Ao et al. (2023)
+    "사회적_증명":   0.317,  # Qiu & Zhang (2024) — review volume r
     "사회적_정체성": 0.31,   # Aguirre-Rodriguez et al. (2012)
-    "호혜성":        0.30,   # Cialdini (1984) + Raghubir (2004)
-    "희소성":        0.25,   # Ali et al. (2025) β→r 변환
+    "호혜성":        0.30,   # Cialdini (1984) + Raghubir (2004) 추정
+    "희소성":        0.25,   # Khalid et al. (2025) β→r 변환
     "긴급성":        0.19,   # Ladeira et al. (2023)
     "가격비교":      0.18,   # 이상수 (2023) β→r 변환
 }

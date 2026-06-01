@@ -153,7 +153,7 @@ python 모델학습/점수계산_최종.py   # 가중치·시너지·ablation·�
 ## 학술 근거
 
 - Singla et al. (2023) "Persuasion Strategies in Advertisements" (AAAI) — 카테고리 체계
-- 가중치 효과크기: Pornpitakpan (2004), Ao et al. (2023), Cialdini (1984) 등 메타분석
+- 가중치 효과크기: Aguirre-Rodriguez et al. (2012)·Qiu & Zhang (2024) 메타분석 + Pornpitakpan (2004) 문헌고찰 + Cialdini (1984) 이론 추정
 - 시너지: Berlyne (1970) inverted-U, Cialdini (1984), Brehm (1966) reactance
 - IRR: Cohen (1960), Landis & Koch (1977), Krippendorff (2004)
 
