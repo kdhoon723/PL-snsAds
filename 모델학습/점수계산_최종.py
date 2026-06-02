@@ -36,17 +36,19 @@ from typing import List, Optional
 
 
 # ============================================================
-# 1. 가중치 설정 (선행 메타분석 r값 기반)
+# 1. a priori 가중치 (이론·메타분석 정보 기반 사전 설정)
 #    w_i = r_i / Σr   (정규화 → 합 1.0)
+#    값은 검증된 실측 r이 아니라 a priori. cf.= 검증된 실측 효과크기(정규화엔 미사용).
+#    상세 근거·검증이력: 점수식_학술근거.md
 # ============================================================
 R_VALUES = {
-    "권위_신뢰":     0.44,   # Pornpitakpan (2004)
-    "사회적_증명":   0.317,  # Qiu & Zhang (2024) — review volume r
-    "사회적_정체성": 0.31,   # Aguirre-Rodriguez et al. (2012)
-    "호혜성":        0.30,   # Cialdini(1984) + Raghubir(2004) 추정
-    "희소성":        0.25,   # Khalid et al. (2025) β→r 변환
-    "긴급성":        0.19,   # Ladeira et al. (2023)
-    "가격비교":      0.18,   # 이상수 (2023) β→r 변환
+    "권위_신뢰":     0.44,   # a priori; cf. Wilson & Sherrell(1993) 메타 expertise r≈.40
+    "사회적_증명":   0.317,  # a priori; cf. Babić Rosario et al.(2016) eWOM volume ρ=.141
+    "사회적_정체성": 0.31,   # Aguirre-Rodriguez et al.(2012) 메타분석 r=.31 (검증 일치)
+    "호혜성":        0.30,   # a priori (Cialdini 1984 이론); cf. DITF r=.126 (Feeley 2012)
+    "희소성":        0.25,   # a priori; cf. Ladeira et al.(2023) 메타 limited-quantity r≈.142
+    "긴급성":        0.19,   # a priori; cf. Sun et al.(2023) zero-order r≈.29 (1차연구)
+    "가격비교":      0.18,   # a priori (잠정 — 기존 β→r 무효); 후보 Santini et al.(2016)
 }
 SIGMA_R = sum(R_VALUES.values())                          # 1.987
 WEIGHTS = {cat: r / SIGMA_R for cat, r in R_VALUES.items()}

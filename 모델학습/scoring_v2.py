@@ -4,22 +4,24 @@
   score = Σ(w_i × ĉ_i × p_i × t_i) × synergy(n) × 100
 
 여기서:
-  - w_i: 학술 가중치 (메타분석 r값 정규화)
+  - w_i: a priori 가중치 (이론·메타분석 정보 기반 사전 설정; 실측 r 직접 투입 아님)
   - ĉ_i: baseline 보정된 신뢰도 (calibrated confidence)
   - p_i: 방향성 점수 (+1.0 긍정 / +0.5 중립 / -1.0 부정)
   - t_i: 강도 점수 (1.5 강 / 1.0 보통 / 0.5 약)
   - n: 양성 카테고리 수
   - synergy(n): 4단계 Inverted-U (1.0 / 1.15 / 1.25 / 0.90)
 
-학술 근거:
-  - 가중치 w: Pornpitakpan(2004), Ao et al.(2023), Cialdini(1984) 등 메타분석
-  - synergy: Berlyne(1970) inverted-U + Cialdini synergy + Brehm reactance + Friestad & Wright(1994)
-  - calibration: PDF (가중치 계산.pdf) 설계자 baseline
+학술 근거 (상세·검증이력: 점수식_학술근거.md):
+  - 가중치 w: a priori. 검증된 출처 = Aguirre-Rodriguez et al.(2012)·Ladeira et al.(2023)·
+    Babić Rosario et al.(2016)·Wilson & Sherrell(1993) 메타분석 + Cialdini(1984) 이론 등.
+  - synergy 형태: Shu & Carlson(2014) 정점3/반전4 + Berlyne(1971) 역U + Brehm(1966) reactance
+    + Friestad & Wright(1994)·Campbell(1995) 설득지식/조작의도.
+  - calibration: 운영본에선 제거됨 (ablation 결과 과보정 — 점수계산_최종.py 참조).
 
-한계:
-  - Framework dependence: Singla et al.(2023) 7-category 한정 ad-hoc 보정
-  - Calibration baseline은 임의 값 — 데이터 fit 없음
-  - Inverted-U 5단계 → 4단계 단순화 (학술 정직성)
+한계 (점수식_학술근거.md §5):
+  - 가중치·배수 구체값은 a priori 설계 파라미터 (데이터 fit 아님) → 민감도 분석으로 방어.
+  - 실측 메타분석 r은 a priori와 다르며(대체로 더 작음) 그대로 정규화 시 카테고리 순위 역전.
+  - ablation은 부분 동어반복(true_score가 동일 매핑 공유) → 구조 기여도 확인 용도.
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
@@ -27,16 +29,18 @@ from typing import Optional
 
 
 # ============================================================
-# 1. 학술 가중치 (메타분석 r값 → 정규화)
+# 1. a priori 가중치 (이론·메타분석 정보 기반 사전 설정)
+#    값은 검증된 실측 r이 아니라 a priori (점수식_학술근거.md §3.1).
+#    주석의 cf.= 검증된 실측 효과크기 (정규화 분모로는 미사용).
 # ============================================================
 R_VALUES = {
-    "권위_신뢰":     0.44,   # Pornpitakpan (2004)
-    "사회적_증명":   0.317,  # Qiu & Zhang (2024) — review volume r
-    "사회적_정체성": 0.31,   # Aguirre-Rodriguez et al. (2012)
-    "호혜성":        0.30,   # Cialdini (1984) + Raghubir (2004) 추정
-    "희소성":        0.25,   # Khalid et al. (2025) β→r 변환
-    "긴급성":        0.19,   # Ladeira et al. (2023)
-    "가격비교":      0.18,   # 이상수 (2023) β→r 변환
+    "권위_신뢰":     0.44,   # a priori; cf. Wilson & Sherrell(1993) 메타 expertise r≈.40 (η²→r)
+    "사회적_증명":   0.317,  # a priori; cf. Babić Rosario et al.(2016) eWOM volume ρ=.141
+    "사회적_정체성": 0.31,   # Aguirre-Rodriguez et al.(2012) 메타분석 r=.31 (검증 일치)
+    "호혜성":        0.30,   # a priori (Cialdini 1984 이론); cf. DITF r=.126 (Feeley et al. 2012)
+    "희소성":        0.25,   # a priori; cf. Ladeira et al.(2023) 메타 limited-quantity r≈.142
+    "긴급성":        0.19,   # a priori; cf. Sun et al.(2023) zero-order r≈.29 (1차연구·DV 충동구매)
+    "가격비교":      0.18,   # a priori (잠정 — 기존 β→r 무효); 후보 Santini et al.(2016) 페이월
 }
 _SIGMA_R = sum(R_VALUES.values())
 WEIGHTS = {cat: r / _SIGMA_R for cat, r in R_VALUES.items()}
@@ -95,12 +99,13 @@ def calibrate_confidence(category: str, raw_confidence: float) -> float:
 def synergy_factor(n_categories: int) -> float:
     """n개 카테고리 동시 활성화에 따른 시너지 보정.
 
-    근거:
-      - n=2~3: Cialdini(1984) multi-cue synergy + Maheswaran & Chaiken(1991)
-      - n≥4: Brehm(1966) reactance + Friestad & Wright(1994) persuasion knowledge
-      - 모양: Berlyne(1970) inverted-U
+    근거 (점수식_학술근거.md §3.4):
+      - 정점3/반전4 위치: Shu & Carlson(2014, J. Marketing) "3 charms, 4 alarms"
+      - n=2~3 상승: Petty & Cacioppo(1984) 주변경로 주장수 효과(저관여)
+      - n≥4 반전: Brehm(1966) reactance + Friestad & Wright(1994) + Campbell(1995) 조작의도
+      - 역U 형태: Berlyne(1971) Aesthetics and Psychobiology (※1970 논문 아님)
 
-    한계: framework-dependent. Singla 7-category 한정.
+    한계: 배수(1.15/1.25/0.90)는 a priori 휴리스틱. 단위=카테고리 수(claim 수의 프록시).
     """
     if n_categories <= 1:
         return 1.00
