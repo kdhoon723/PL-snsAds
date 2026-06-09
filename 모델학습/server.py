@@ -1017,7 +1017,7 @@ function renderV2(d) {
   $('#result').innerHTML = `
     ${ocrBlock}
     <div class="card hero">
-      <div class="level ${levelClass}">${levelTxt} · 보정 점수 (PDF)</div>
+      <div class="level ${levelClass}">${levelTxt} · 종합 점수</div>
       <div class="score">${score.toFixed(1)}<span style="font-size:16px;color:var(--text-mute);font-weight:500"> / 100</span></div>
       <div class="gauge"><div class="gauge-fill" style="width:${pct}%"></div></div>
       <div style="font-size:12px;color:var(--text-mute);margin-top:8px">${syn}</div>
@@ -1026,7 +1026,7 @@ function renderV2(d) {
     <div class="cats">${rows}</div>
     <div class="meta">
       <span>↑긍정 ·중립 ↓부정 / ●●●강 ●●보통 ●약</span>
-      <span>Cycle 50 앙상블 (F1 0.830)</span>
+      <span>KLUE-RoBERTa 앙상블</span>
     </div>
     <div class="formula-bar" style="margin-top:12px;background:var(--accent-soft);padding:10px 14px;border-radius:10px;border:0">
       <span class="formula-label">사용된 공식</span>
