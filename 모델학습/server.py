@@ -463,30 +463,30 @@ INDEX_HTML = """<!doctype html>
   @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
   /* Intensity hero */
-  .hero { text-align: center; padding: 36px 24px; margin-bottom: 16px; }
-  .score { font-size: 72px; font-weight: 700; letter-spacing: -0.04em;
-    line-height: 1; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+  .hero { text-align: center; padding: 18px 24px; margin-bottom: 12px; }
+  .score { font-size: 44px; font-weight: 700; letter-spacing: -0.03em;
+    line-height: 1; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
   .level { font-size: 14px; color: var(--text-soft); text-transform: uppercase;
     letter-spacing: 0.1em; font-weight: 600; }
   .level.high { color: var(--red); }
   .level.mid { color: var(--amber); }
   .level.low { color: var(--green); }
   .level.none { color: var(--text-mute); }
-  .gauge { margin-top: 20px; height: 6px; background: var(--accent-soft);
+  .gauge { margin-top: 10px; height: 6px; background: var(--accent-soft);
     border-radius: 100px; overflow: hidden; max-width: 360px; margin-left: auto; margin-right: auto; }
   .gauge-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--amber), var(--red));
     border-radius: 100px; transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
 
   /* Active categories */
-  .actives { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 16px; }
+  .actives { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
   .tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px;
     background: var(--accent-soft); border-radius: 100px; font-size: 13px; font-weight: 500; }
   .tag-dot { width: 6px; height: 6px; border-radius: 50%; }
 
   /* Category cards */
-  .cats { display: grid; gap: 8px; }
-  .cat-row { display: grid; grid-template-columns: 120px 1fr 50px;
-    align-items: center; gap: 16px; padding: 12px 16px;
+  .cats { display: grid; gap: 6px; }
+  .cat-row { display: grid; grid-template-columns: 150px 1fr 46px;
+    align-items: center; gap: 14px; padding: 8px 16px;
     background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
     transition: 0.15s; }
   .cat-row.pos { border-color: transparent; }
@@ -497,7 +497,7 @@ INDEX_HTML = """<!doctype html>
   .cat-row.pos[data-c="가격비교"] { background: color-mix(in srgb, var(--price) 8%, var(--surface)); }
   .cat-row.pos[data-c="권위_신뢰"] { background: color-mix(in srgb, var(--authority) 8%, var(--surface)); }
   .cat-row.pos[data-c="호혜성"] { background: color-mix(in srgb, var(--recip) 8%, var(--surface)); }
-  .cat-name { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 14px; }
+  .cat-name { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 14px; white-space: nowrap; }
   .cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .cat-bar { background: var(--accent-soft); border-radius: 100px; height: 8px; position: relative;
     overflow: hidden; }
@@ -563,8 +563,8 @@ INDEX_HTML = """<!doctype html>
   @media (max-width: 600px) {
     .container { padding: 24px 16px 48px; }
     h1 { font-size: 24px; }
-    .score { font-size: 56px; }
-    .cat-row { grid-template-columns: 100px 1fr 44px; gap: 10px; padding: 10px 12px; }
+    .score { font-size: 36px; }
+    .cat-row { grid-template-columns: 132px 1fr 42px; gap: 10px; padding: 7px 12px; }
     .cat-name { font-size: 13px; }
   }
 </style>
@@ -1018,9 +1018,9 @@ function renderV2(d) {
     ${ocrBlock}
     <div class="card hero">
       <div class="level ${levelClass}">${levelTxt} · 보정 점수 (PDF)</div>
-      <div class="score">${score.toFixed(1)}<span style="font-size:24px;color:var(--text-mute);font-weight:500"> / 100</span></div>
+      <div class="score">${score.toFixed(1)}<span style="font-size:16px;color:var(--text-mute);font-weight:500"> / 100</span></div>
       <div class="gauge"><div class="gauge-fill" style="width:${pct}%"></div></div>
-      <div style="font-size:12px;color:var(--text-mute);margin-top:12px">${syn}</div>
+      <div style="font-size:12px;color:var(--text-mute);margin-top:8px">${syn}</div>
       ${tags ? `<div class="actives">${tags}</div>` : ''}
     </div>
     <div class="cats">${rows}</div>
