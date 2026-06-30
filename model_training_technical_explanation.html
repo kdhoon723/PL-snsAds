@@ -384,7 +384,7 @@
         <span class="tag">입력</span>
         <h3>광고 문구</h3>
         <p>예: “오늘만 50% 할인! 무료배송”</p>
-        <p>KLUE-RoBERTa-large에서 제공하는 토크나이저를 사용해 문장을 토큰 ID로 변환해 모델에 넣습니다.</p>
+        <p>입력된 광고 문구를 모델이 처리할 수 있는 형식으로 변환해 넣습니다.</p>
       </div>
       <div class="card green">
         <span class="tag green">Backbone</span>
@@ -413,9 +413,9 @@
     <h2>6. 모델 학습 방식</h2>
     <div class="flow">
       <div class="step">
-        <h3>토큰화</h3>
-        <p>광고 문구는 직접 만든 토크나이저가 아니라 KLUE-RoBERTa-large의 사전학습 토크나이저를 사용해 숫자 토큰 ID로 변환했습니다.</p>
-        <p class="small">최대 길이 256 토큰 기준 · 토크나이저는 사전학습 모델 제공 도구 사용</p>
+        <h3>입력 전처리</h3>
+        <p>광고 문구를 KLUE-RoBERTa-large가 읽을 수 있는 입력 형식으로 변환했습니다.</p>
+        <p class="small">최대 길이 256 토큰 기준으로 처리</p>
       </div>
       <div class="step">
         <h3>문맥 벡터 생성</h3>
