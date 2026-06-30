@@ -576,6 +576,42 @@
 
   <section>
     <h2>11. 평가 지표 해석</h2>
+    <h3>Macro-F1을 대표 분류 지표(벤치마크)로 사용한 이유</h3>
+    <p>
+      Macro-F1은 7개 설득 전략 카테고리를 각각 얼마나 잘 찾았는지 계산한 뒤, 그 값을 단순 평균한 지표입니다.
+      이 연구에서는 카테고리별 데이터 개수가 균일하지 않기 때문에, 많이 등장하는 카테고리만 잘 맞혀도 높게 보일 수 있는 단순 정확도보다
+      Macro-F1이 더 적절한 비교 기준입니다.
+    </p>
+    <p class="small">
+      ※ 여기서 벤치마크는 외부 공개 벤치마크 데이터셋이라는 뜻이 아니라, 모델 성능을 비교할 때 기준으로 삼은 평가 지표라는 의미로 설명하면 안전합니다.
+    </p>
+    <div class="grid">
+      <div class="card blue">
+        <span class="tag">Precision</span>
+        <h3>정밀도</h3>
+        <p>모델이 “해당 카테고리다”라고 예측한 것 중 실제로 맞은 비율입니다.</p>
+      </div>
+      <div class="card green">
+        <span class="tag green">Recall</span>
+        <h3>재현율</h3>
+        <p>실제로 해당 카테고리인 문구 중 모델이 놓치지 않고 찾아낸 비율입니다.</p>
+      </div>
+      <div class="card orange">
+        <span class="tag orange">F1</span>
+        <h3>균형 점수</h3>
+        <p>정밀도와 재현율을 함께 반영한 값입니다. 둘 중 하나만 높아서는 F1이 높게 나오기 어렵습니다.</p>
+      </div>
+    </div>
+    <div class="formula">
+      F1 = 2 × (정밀도 × 재현율) / (정밀도 + 재현율)
+      <br>
+      Macro-F1 = 7개 카테고리별 F1의 평균
+    </div>
+    <div class="note">
+      <strong>주의:</strong>
+      Macro-F1 0.826은 “정확도 82.6%”와 같은 뜻이 아닙니다.
+      7개 카테고리에 대해 정밀도와 재현율을 균형 있게 반영했을 때 평균 F1이 0.826이라는 의미입니다.
+    </div>
     <table>
       <thead>
       <tr>
@@ -586,8 +622,8 @@
       </tr>
       </thead>
       <tbody>
-      <tr><td>단일 모델 Macro-F1</td><td><strong>0.826</strong></td><td>7개 카테고리 분류 성능의 평균</td><td>발표 대표 분류 성능으로 사용 가능</td></tr>
-      <tr><td>앙상블 Macro-F1</td><td><strong>0.830</strong></td><td>4개 모델 예측을 평균했을 때의 성능</td><td>보조 성능으로 설명</td></tr>
+      <tr><td>단일 모델 Macro-F1</td><td><strong>0.826</strong></td><td>7개 카테고리별 F1을 동일 비중으로 평균</td><td>발표 대표 분류 성능으로 사용 가능</td></tr>
+      <tr><td>앙상블 Macro-F1</td><td><strong>0.830</strong></td><td>4개 모델 예측을 평균했을 때의 카테고리 분류 성능</td><td>보조 성능으로 설명</td></tr>
       <tr><td>방향성 F1</td><td><strong>0.928</strong></td><td>표현 방향성을 맞힌 정도</td><td>데이터 대부분이 긍정 방향이라 높게 나올 수 있음</td></tr>
       <tr><td>강도 F1</td><td><strong>약 0.63~0.65</strong></td><td>강/보통/약 분류 성능</td><td>주관적 판단이 들어가 상대적으로 어려운 과제</td></tr>
       <tr><td>Pearson r</td><td><strong>0.838</strong></td><td>라벨 기반 기준 점수와 모델 예측 점수의 상관</td><td>실제 클릭률·구매율과의 상관이 아님</td></tr>
@@ -627,28 +663,37 @@
       </div>
     </details>
     <details>
-      <summary>Q3. 강도는 어떤 기준으로 나온 건가요?</summary>
+      <summary>Q3. Macro-F1 0.826은 정확도 82.6%라는 뜻인가요?</summary>
+      <div class="answer">
+        아닙니다. Macro-F1은 정확도가 아니라, 7개 카테고리 각각의 F1 점수를 평균한 분류 성능 지표입니다.
+        F1은 정밀도와 재현율을 함께 보는 값이기 때문에, 모델이 특정 카테고리를 과하게 예측하거나 너무 놓치는 경우 모두 점수가 낮아집니다.
+        이 연구에서는 카테고리별 데이터 수가 다르기 때문에 Macro-F1을 대표 분류 지표로 사용했습니다.
+        다만 외부 공개 벤치마크를 사용했다는 뜻이 아니라, 자체 테스트셋에서 모델 성능을 비교하는 기준 지표로 사용했다는 의미입니다.
+      </div>
+    </details>
+    <details>
+      <summary>Q4. 강도는 어떤 기준으로 나온 건가요?</summary>
       <div class="answer">
         강도는 라벨링 단계에서 사람이 정한 약·보통·강 기준을 모델이 학습한 결과입니다.
         표현이 더 구체적이고 직접적으로 구매를 유도할수록 강하게 분류됩니다.
       </div>
     </details>
     <details>
-      <summary>Q4. Pearson r=0.838은 정확도를 뜻하나요?</summary>
+      <summary>Q5. Pearson r=0.838은 정확도를 뜻하나요?</summary>
       <div class="answer">
         정확도와는 다릅니다. Pearson r은 기준 점수와 예측 점수가 같은 방향으로 움직이는 정도를 보는 상관 지표입니다.
         실제 소비자 클릭률이나 구매율과의 상관은 아닙니다.
       </div>
     </details>
     <details>
-      <summary>Q5. AI 라벨링을 썼다면 데이터가 편향될 수 있지 않나요?</summary>
+      <summary>Q6. AI 라벨링을 썼다면 데이터가 편향될 수 있지 않나요?</summary>
       <div class="answer">
         그 가능성이 있습니다. 그래서 초기에는 사람이 직접 라벨링하면서 기준을 정리했고, 그 기준으로 AI 라벨링을 확장했습니다.
         다만 모든 데이터가 독립적인 인간 평가자에 의해 검증된 것은 아니므로, 향후 인간 gold set 검증이 필요합니다.
       </div>
     </details>
     <details>
-      <summary>Q6. 앙상블 모델을 왜 사용했나요?</summary>
+      <summary>Q7. 앙상블 모델을 왜 사용했나요?</summary>
       <div class="answer">
         여러 모델의 예측을 평균하면 한 모델의 우연한 오차를 줄일 수 있기 때문입니다.
         단일 모델은 Macro-F1 0.826, 4개 모델 앙상블은 0.830으로 소폭 개선되었습니다.
@@ -656,7 +701,7 @@
       </div>
     </details>
     <details>
-      <summary>Q7. 이 점수는 실제 소비자가 충동구매할 확률인가요?</summary>
+      <summary>Q8. 이 점수는 실제 소비자가 충동구매할 확률인가요?</summary>
       <div class="answer">
         아닙니다. 이 점수는 실제 구매 확률이 아니라 광고 텍스트 안의 설득 전략 자극 정도를 상대적으로 보여주는 합성지표입니다.
         실제 클릭률, 구매 전환율, 소비자 실험 데이터를 넣어 검증하면 이후 더 실증적인 점수로 발전시킬 수 있습니다.
