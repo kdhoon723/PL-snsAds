@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>시너지 보정 학술 근거 정리</title>
+  <style>
+    :root {
+      --bg: #f7f7f5;
+      --paper: #ffffff;
+      --text: #202124;
+      --muted: #667085;
+      --line: #dfe3e8;
+      --accent: #2563eb;
+      --green: #15803d;
+      --orange: #b45309;
+      --red: #b91c1c;
+      --purple: #7c3aed;
+      --soft-blue: #eff6ff;
+      --soft-green: #f0fdf4;
+      --soft-orange: #fff7ed;
+      --soft-red: #fef2f2;
+      --soft-purple: #f5f3ff;
+      --shadow: 0 18px 55px rgba(15, 23, 42, .08);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(37, 99, 235, .08), transparent 28%),
+        radial-gradient(circle at 100% 10%, rgba(124, 58, 237, .07), transparent 26%),
+        var(--bg);
+      color: var(--text);
+      font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      line-height: 1.65;
+      letter-spacing: -0.025em;
+    }
+
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 20px 72px;
+    }
+
+    header,
+    section {
+      background: rgba(255, 255, 255, .94);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 18px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, .035);
+    }
+
+    header {
+      padding: 30px;
+      box-shadow: var(--shadow);
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+    h1, h2, h3 { line-height: 1.3; letter-spacing: -0.045em; }
+    h1 { font-size: 30px; margin-bottom: 8px; }
+    h2 { font-size: 23px; margin-bottom: 14px; }
+    h3 { font-size: 17px; margin-bottom: 8px; }
+    p { margin-bottom: 10px; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .meta {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .lead {
+      margin: 18px 0 0;
+      font-size: 17px;
+      color: #344054;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: #fcfcfb;
+      padding: 16px;
+    }
+
+    .card.blue { background: var(--soft-blue); border-color: #bfdbfe; }
+    .card.green { background: var(--soft-green); border-color: #bbf7d0; }
+    .card.orange { background: var(--soft-orange); border-color: #fed7aa; }
+    .card.red { background: var(--soft-red); border-color: #fecaca; }
+    .card.purple { background: var(--soft-purple); border-color: #ddd6fe; }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      margin: 0 6px 8px 0;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      color: var(--accent);
+      background: #dbeafe;
+    }
+
+    .tag.green { color: var(--green); background: #dcfce7; }
+    .tag.orange { color: var(--orange); background: #ffedd5; }
+    .tag.red { color: var(--red); background: #fee2e2; }
+    .tag.purple { color: var(--purple); background: #ede9fe; }
+    .tag.gray { color: #475467; background: #f2f4f7; }
+
+    .formula {
+      margin: 14px 0;
+      padding: 18px 20px;
+      border-radius: 14px;
+      border: 1px solid #bfdbfe;
+      background: linear-gradient(135deg, #eff6ff, #ffffff);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 18px;
+      font-weight: 800;
+      color: #1d4ed8;
+      overflow-x: auto;
+    }
+
+    .note,
+    .good,
+    .warn,
+    .danger {
+      margin-top: 12px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border-left: 4px solid var(--accent);
+      background: var(--soft-blue);
+    }
+
+    .good { border-left-color: var(--green); background: var(--soft-green); }
+    .warn { border-left-color: var(--orange); background: var(--soft-orange); }
+    .danger { border-left-color: var(--red); background: var(--soft-red); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+      background: #fff;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #f1f5f9;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    td strong { color: #111827; }
+
+    code {
+      background: #f1f5f9;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1px 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .92em;
+    }
+
+    ul, ol { margin-top: 8px; padding-left: 22px; }
+    li { margin: 6px 0; }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 14px 0 4px;
+    }
+
+    .flow .step {
+      position: relative;
+      min-height: 118px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fcfcfb;
+      padding: 15px;
+    }
+
+    .flow .step::after {
+      content: "→";
+      position: absolute;
+      right: -16px;
+      top: 38%;
+      color: #98a2b3;
+      font-weight: 900;
+      font-size: 20px;
+    }
+
+    .flow .step:last-child::after { content: ""; }
+
+    .small { font-size: 13px; color: var(--muted); }
+    .nowrap { white-space: nowrap; }
+
+    .ref-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .ref {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 13px 15px;
+      background: #fcfcfb;
+    }
+
+    .ref b { display: block; margin-bottom: 3px; }
+
+    details {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      background: #fcfcfb;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    blockquote {
+      margin: 12px 0 0;
+      padding: 14px 16px;
+      border-left: 4px solid var(--accent);
+      background: #f8fafc;
+      border-radius: 10px;
+    }
+
+    @media (max-width: 760px) {
+      main { padding: 18px 12px 48px; }
+      header, section { padding: 18px; }
+      h1 { font-size: 25px; }
+      h2 { font-size: 20px; }
+      .flow { grid-template-columns: 1fr; }
+      .flow .step::after { content: "↓"; right: 18px; top: auto; bottom: -22px; }
+      .flow .step:last-child::after { content: ""; }
+      table { font-size: 13px; }
+      th, td { padding: 8px; }
+    }
+
+    @media print {
+      body { background: #fff; }
+      main { max-width: 100%; padding: 0; }
+      header, section { box-shadow: none; break-inside: avoid; }
+      a { color: #111827; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="tag">SNS 광고 텍스트</div>
+      <div class="tag purple">점수식 방어자료</div>
+      <h1>시너지 보정 S(n) 학술 근거 정리</h1>
+      <p class="meta">기존 HTML 스타일 확인 후 동일한 문서형 카드 레이아웃으로 작성 · 2026-07-01</p>
+      <p class="lead">
+        핵심은 <strong>“여러 설득 전략이 동시에 탐지되면 소비심리 자극이 누적·상호작용할 수 있지만, 너무 많으면 조작 의도 인식이나 반발로 효과가 낮아질 수 있다”</strong>는 설명입니다.
+        따라서 본 연구의 <code>S(n)</code>은 실제 구매 전환율을 직접 학습한 값이 아니라, 선행연구를 바탕으로 둔 <strong>a priori 휴리스틱 보정 계수</strong>로 설명하는 것이 안전합니다.
+      </p>
+    </header>
+
+    <section>
+      <h2>1. 기존 HTML 스타일 확인 결과</h2>
+      <div class="grid">
+        <div class="card blue">
+          <span class="tag">스타일 계열</span>
+          <h3>문서형 설명 페이지</h3>
+          <p><code>model_training_technical_explanation.html</code>, <code>presentation_review_checklist.html</code> 계열처럼 1120px 폭, 흰색 카드, 회색 배경, 표/태그 중심 구조를 사용했습니다.</p>
+        </div>
+        <div class="card green">
+          <span class="tag green">색상</span>
+          <h3>차분한 발표 보조자료 톤</h3>
+          <p>배경 <code>#f7f7f5</code>, 본문 <code>#202124</code>, 강조 파랑 <code>#2563eb</code>, 근거/주의/위험 색상 태그를 기존 방식과 맞췄습니다.</p>
+        </div>
+        <div class="card orange">
+          <span class="tag orange">구성</span>
+          <h3>발표 답변용</h3>
+          <p>심사위원 질문에 바로 답할 수 있도록 “한 문장 답변”, “수식 연결”, “근거 논문”, “주의 표현” 순서로 배치했습니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>2. 시너지 보정의 현재 수식 위치</h2>
+      <p>현재 점수식은 모델이 예측한 카테고리 확률, 방향성, 강도에 카테고리 가중치를 곱한 뒤, 동시에 탐지된 카테고리 수에 따른 보정 계수 <code>S(n)</code>을 적용하는 구조입니다.</p>
+      <div class="formula">Score = ( Σ Wᵢ × probᵢ × pᵢ × tᵢ ) × S(n) × 100</div>
+      <table>
+        <thead>
+          <tr>
+            <th>기호</th>
+            <th>역할</th>
+            <th>설명</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>Wᵢ</code></td><td>카테고리 가중치</td><td>각 설득 전략의 이론적 중요도</td></tr>
+          <tr><td><code>probᵢ</code></td><td>모델 확률</td><td>광고 문구에 해당 전략이 포함될 가능성</td></tr>
+          <tr><td><code>pᵢ</code></td><td>방향성</td><td>소비를 자극하는 방향인지, 중립/부정 방향인지 반영</td></tr>
+          <tr><td><code>tᵢ</code></td><td>강도</td><td>표현이 약한 권유인지 강한 압박인지 반영</td></tr>
+          <tr><td><code>S(n)</code></td><td>시너지 보정</td><td>동시에 탐지된 설득 전략 수가 소비자 반응을 누적·강화 또는 반감시킬 가능성 반영</td></tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <strong>표현 추천:</strong> “시너지 계수”보다 <strong>“동시 탐지 카테고리 수 보정”</strong> 또는 <strong>“복수 설득 단서 보정”</strong>이라고 말하면 학술적으로 더 안전합니다.
+      </div>
+    </section>
+
+    <section>
+      <h2>3. S(n) 계수와 학술적 해석</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>탐지 카테고리 수</th>
+            <th>현재 계수</th>
+            <th>해석</th>
+            <th>방어 논리</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1개</td>
+            <td><strong>× 1.00</strong></td>
+            <td>기본 점수</td>
+            <td>단일 설득 단서만 반영하므로 추가 보정 없음</td>
+          </tr>
+          <tr>
+            <td>2개</td>
+            <td><strong>× 1.15</strong></td>
+            <td>복합 자극 증가</td>
+            <td>서로 같은 방향의 단서가 함께 제시되면 판단 근거가 보강될 수 있음</td>
+          </tr>
+          <tr>
+            <td>3개</td>
+            <td><strong>× 1.25</strong></td>
+            <td>가장 강한 복합 자극</td>
+            <td>여러 근거가 충분히 제시되지만 과도해 보이기 전의 정점으로 설정</td>
+          </tr>
+          <tr>
+            <td>4개 이상</td>
+            <td><strong>× 0.90</strong></td>
+            <td>반감 가능성</td>
+            <td>과도한 주장·단서가 조작 의도 인식, 인지 부담, 심리적 반발을 유발할 수 있음</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="warn">
+        <strong>중요:</strong> 1.15, 1.25, 0.90이라는 숫자 자체가 특정 논문에서 그대로 나온 값은 아닙니다. 논문은 <strong>형태와 방향성</strong>, 즉 “복수 단서의 누적 가능성”과 “과도한 단서의 반감 가능성”을 뒷받침하고, 배수는 본 연구의 초기 설계값으로 설명해야 합니다.
+      </div>
+    </section>
+
+    <section>
+      <h2>4. 한눈에 보는 이론 흐름</h2>
+      <div class="flow">
+        <div class="step">
+          <span class="tag gray">Step 1</span>
+          <h3>복수 전략 공출현</h3>
+          <p class="small">실제 광고에는 권위, 희소성, 호혜성 등이 함께 나타날 수 있음.</p>
+        </div>
+        <div class="step">
+          <span class="tag gray">Step 2</span>
+          <h3>누적·가산 효과</h3>
+          <p class="small">판단 방향이 일치하는 단서들은 구매 판단을 보강하는 정보로 작용 가능.</p>
+        </div>
+        <div class="step">
+          <span class="tag gray">Step 3</span>
+          <h3>정점 구간</h3>
+          <p class="small">주장이 2~3개일 때는 충분한 근거처럼 보일 수 있음.</p>
+        </div>
+        <div class="step">
+          <span class="tag gray">Step 4</span>
+          <h3>과잉 시 반감</h3>
+          <p class="small">4개 이상은 과장·조작 의도·인지 부담으로 역효과 가능.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>5. 근거 논문 요약</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>근거 역할</th>
+            <th>논문/문헌</th>
+            <th>핵심 내용</th>
+            <th>우리 연구 적용</th>
+            <th>주의점</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tag">광고 공출현</span></td>
+            <td><strong>Kumar et al. (2023)</strong><br><em>Persuasion Strategies in Advertisements</em></td>
+            <td>광고에서 여러 설득 전략이 동시에 주석될 수 있고, 희소성-호혜성 등 공출현이 보고됨.</td>
+            <td>“광고 문구에도 복수 설득 전략이 동시에 포함될 수 있다”는 전제 근거.</td>
+            <td>이미지/멀티모달 광고 중심이므로 텍스트 광고에는 조심스럽게 전이.</td>
+          </tr>
+          <tr>
+            <td><span class="tag green">가산 효과</span></td>
+            <td><strong>Todorov, Chaiken & Henderson (2002)</strong><br><em>Heuristic-Systematic Model</em></td>
+            <td>휴리스틱 단서와 메시지 내용이 같은 판단 방향이면 독립적·가산적으로 설득에 작용할 수 있음.</td>
+            <td>긴급성, 가격비교, 호혜성처럼 같은 구매 방향 단서가 함께 나오면 보정 가능.</td>
+            <td>정확한 배수를 제공하는 실증 논문은 아니며 이론적 근거로 사용.</td>
+          </tr>
+          <tr>
+            <td><span class="tag green">논거 수</span></td>
+            <td><strong>Petty & Cacioppo (1984)</strong><br><em>Argument Quantity and Quality</em></td>
+            <td>설득 메시지에서 논거의 수와 질이 관여도에 따라 설득 효과에 영향을 줌.</td>
+            <td>탐지 카테고리 수를 “소비자에게 제시된 설득 근거 수”의 프록시로 해석.</td>
+            <td>약한 논거가 많으면 오히려 설득력이 떨어질 수 있으므로 강도 계수와 함께 설명.</td>
+          </tr>
+          <tr>
+            <td><span class="tag purple">정점 3</span></td>
+            <td><strong>Shu & Carlson (2014)</strong><br><em>When Three Charms but Four Alarms</em></td>
+            <td>긍정적 주장은 3개까지 인상을 강화하지만, 4개 이상에서는 회의·경계가 커질 수 있음을 제시.</td>
+            <td><code>S(3)=1.25</code>, <code>S(n≥4)=0.90</code> 형태를 설명하는 핵심 근거.</td>
+            <td>“카테고리 수”와 “광고 주장 수”는 완전히 같지 않으므로 프록시라고 설명.</td>
+          </tr>
+          <tr>
+            <td><span class="tag orange">과잉 반감</span></td>
+            <td><strong>Friestad & Wright (1994)</strong><br><em>Persuasion Knowledge Model</em></td>
+            <td>소비자는 설득 의도와 설득 전술을 인식하고 이에 대응하는 지식을 사용함.</td>
+            <td>너무 많은 설득 요소가 한 문구에 몰리면 “팔려고 한다”는 인식이 커질 수 있음.</td>
+            <td>직접적으로 S(n) 수치를 제시하지 않음.</td>
+          </tr>
+          <tr>
+            <td><span class="tag orange">조작 의도</span></td>
+            <td><strong>Campbell (1995)</strong><br><em>Manipulative Intent</em></td>
+            <td>주의를 끄는 광고 전술이 소비자에게 조작 의도 추론을 유발할 수 있음을 분석.</td>
+            <td>과도한 긴급성·희소성·권위 표현이 누적될 때 반감 가능성을 설명.</td>
+            <td>TV 광고 전술 연구라 SNS 텍스트에는 보조 근거로 사용.</td>
+          </tr>
+          <tr>
+            <td><span class="tag red">역U 형태</span></td>
+            <td><strong>Berlyne (1971)</strong><br><em>Aesthetics and Psychobiology</em></td>
+            <td>자극의 복잡성·각성 수준과 선호 사이의 역U 관계를 설명하는 고전 이론.</td>
+            <td>설득 단서가 일정 수준까지는 주목과 흥미를 높이지만, 과도하면 부담이 될 수 있다는 형태 근거.</td>
+            <td>광고 설득 전용 이론은 아니므로 “형태적 참고”로만 사용.</td>
+          </tr>
+          <tr>
+            <td><span class="tag green">실증 보강</span></td>
+            <td><strong>Barbosa & Bermúdez (2024)</strong><br><em>SMS Nudge Bundles</em></td>
+            <td>단일 넛지보다 여러 넛지를 결합한 메시지가 더 높은 반응을 유도한 현장 실험.</td>
+            <td>여러 설득/행동 유도 단서의 결합이 행동 반응을 강화할 수 있다는 실증 보강.</td>
+            <td>공공정책 SMS 맥락이므로 SNS 광고에는 보조 근거로 사용.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>6. 발표에서 바로 말할 수 있는 설명</h2>
+      <blockquote>
+        시너지 보정은 광고 문구 안에 여러 설득 전략이 동시에 들어갈 때 소비자가 이를 각각 독립된 표현으로만 받아들이지 않고, 구매 판단을 강화하는 복합 신호로 처리할 수 있다는 점을 반영한 것입니다. 광고 연구에서도 복수 설득 전략의 공출현이 보고되었고, 휴리스틱-체계적 처리 모델은 같은 방향의 단서들이 가산적으로 작용할 수 있다고 설명합니다. 다만 설득 요소가 지나치게 많아지면 소비자가 조작 의도를 인식하거나 심리적 반발을 느낄 수 있기 때문에, 본 연구에서는 3개까지는 보정을 높이고 4개 이상에서는 오히려 낮추는 역U 형태의 보정 계수를 사용했습니다.
+      </blockquote>
+      <div class="good">
+        <strong>짧은 버전:</strong> “여러 설득 단서가 함께 있으면 자극이 커질 수 있지만, 너무 많으면 과장 광고처럼 느껴질 수 있어 역U 형태로 보정했습니다.”
+      </div>
+    </section>
+
+    <section>
+      <h2>7. 심사 질문 대응</h2>
+      <details open>
+        <summary>Q1. 왜 카테고리가 많으면 점수가 올라가나요?</summary>
+        <p>하나의 광고 문구에 긴급성, 가격비교, 호혜성처럼 같은 방향의 설득 단서가 동시에 있으면 소비자는 이를 구매 판단을 뒷받침하는 복수 근거로 받아들일 수 있습니다. HSM과 ELM 계열 연구에서는 단서 또는 논거 수가 설득 처리에 영향을 줄 수 있음을 설명합니다.</p>
+      </details>
+      <details open>
+        <summary>Q2. 그런데 왜 4개 이상은 낮추나요?</summary>
+        <p>설득 전략이 너무 많이 들어가면 “너무 팔려고 한다”, “과장된 광고다”라는 설득 지식이 활성화될 수 있습니다. Shu & Carlson(2014)의 ‘3개는 매력적이지만 4개는 경계심을 유발할 수 있다’는 주장 수 연구와, Friestad & Wright(1994)의 설득지식모델을 근거로 역U 형태를 적용했습니다.</p>
+      </details>
+      <details>
+        <summary>Q3. 1.15, 1.25, 0.90이라는 값은 논문에서 나온 값인가요?</summary>
+        <p>아닙니다. 이 숫자는 선행연구의 방향성과 이론을 반영한 초기 설계값입니다. 논문들은 복수 단서의 누적 가능성과 과잉 설득의 반감 가능성을 뒷받침하며, 구체 배수는 향후 클릭률·구매 전환율 데이터가 확보되면 보정해야 하는 파라미터입니다.</p>
+      </details>
+      <details>
+        <summary>Q4. 시너지 보정이 실제 구매율을 의미하나요?</summary>
+        <p>아닙니다. 본 점수는 실제 구매 전환율이 아니라 광고 문구 안의 소비심리 자극 요소를 비교하기 위한 상대 지표입니다. 실제 구매율 예측 모델로 발전시키려면 클릭률, 체류 시간, 전환율 같은 행동 데이터로 재학습 또는 보정해야 합니다.</p>
+      </details>
+    </section>
+
+    <section>
+      <h2>8. 논문/발표자료에 넣을 문장</h2>
+      <h3>논문용 문장</h3>
+      <div class="note">
+        본 연구에서는 복수 설득 단서가 동시에 제시될 때 소비자가 이를 구매 판단을 강화하는 복합 신호로 처리할 수 있다는 점을 반영하기 위해 동시 탐지 카테고리 수 보정 계수 <code>S(n)</code>을 도입하였다. 이는 광고 내 설득 전략의 공출현 가능성(Kumar et al., 2023), 휴리스틱 단서와 메시지 내용의 가산적 처리 가능성(Todorov et al., 2002), 논거 수가 설득 효과에 미치는 영향(Petty & Cacioppo, 1984)에 근거한다. 또한 과도한 설득 단서는 소비자의 설득지식 활성화 및 조작 의도 추론을 유발할 수 있으므로(Friestad & Wright, 1994; Campbell, 1995), <code>S(n)</code>은 3개 탐지 시 정점에 도달하고 4개 이상에서는 감소하는 역U 형태로 설계하였다.
+      </div>
+      <h3>발표용 문장</h3>
+      <div class="good">
+        여러 전략이 같이 나오면 소비자가 느끼는 설득 압력이 커질 수 있기 때문에 보정했습니다. 다만 너무 많은 전략이 한 문구에 몰리면 오히려 과장이나 조작 의도로 느껴질 수 있어, 3개까지는 증가시키고 4개 이상은 낮추는 방식으로 설계했습니다.
+      </div>
+    </section>
+
+    <section>
+      <h2>9. 주의해야 할 표현</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>피해야 할 표현</th>
+            <th>이유</th>
+            <th>대체 표현</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>“시너지 효과가 입증되어 계수를 적용했다”</td>
+            <td>계수값 자체가 실측 구매 데이터에서 학습된 것은 아님</td>
+            <td>“복수 설득 단서의 누적·상호작용 가능성을 반영한 초기 보정 계수”</td>
+          </tr>
+          <tr>
+            <td>“카테고리가 많을수록 무조건 자극이 커진다”</td>
+            <td>과잉 설득은 반감·불신을 유발할 수 있음</td>
+            <td>“일정 수준까지 증가하되, 과도하면 감소하는 역U 형태”</td>
+          </tr>
+          <tr>
+            <td>“이 점수는 구매 확률이다”</td>
+            <td>실제 클릭률·전환율 데이터로 학습한 값이 아님</td>
+            <td>“광고 문구 간 자극 정도를 비교하기 위한 상대 지표”</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>10. 참고문헌 링크</h2>
+      <div class="ref-list">
+        <div class="ref">
+          <b>Kumar, Y., Jha, R., Gupta, A., et al. (2023).</b>
+          Persuasion Strategies in Advertisements. <em>Proceedings of the AAAI Conference on Artificial Intelligence, 37(1)</em>, 57–66.
+          <a href="https://doi.org/10.1609/aaai.v37i1.25076" target="_blank" rel="noreferrer">https://doi.org/10.1609/aaai.v37i1.25076</a>
+        </div>
+        <div class="ref">
+          <b>Todorov, A., Chaiken, S., &amp; Henderson, M. D. (2002).</b>
+          The Heuristic-Systematic Model of Social Information Processing. In J. P. Dillard &amp; M. Pfau (Eds.), <em>The Persuasion Handbook</em>, 195–211.
+          <a href="https://bpb-us-w2.wpmucdn.com/voices.uchicago.edu/dist/f/3051/files/2021/02/Todorov_PersuasionHandbookChapter2002.pdf" target="_blank" rel="noreferrer">PDF</a>
+        </div>
+        <div class="ref">
+          <b>Petty, R. E., &amp; Cacioppo, J. T. (1984).</b>
+          The Effects of Involvement on Responses to Argument Quantity and Quality: Central and Peripheral Routes to Persuasion. <em>Journal of Personality and Social Psychology, 46(1)</em>, 69–81.
+          <a href="https://doi.org/10.1037/0022-3514.46.1.69" target="_blank" rel="noreferrer">https://doi.org/10.1037/0022-3514.46.1.69</a>
+        </div>
+        <div class="ref">
+          <b>Shu, S. B., &amp; Carlson, K. A. (2014).</b>
+          When Three Charms but Four Alarms: Identifying the Optimal Number of Claims in Persuasion Settings. <em>Journal of Marketing, 78(1)</em>, 127–139.
+          <a href="https://doi.org/10.1509/jm.11.0504" target="_blank" rel="noreferrer">https://doi.org/10.1509/jm.11.0504</a>
+        </div>
+        <div class="ref">
+          <b>Friestad, M., &amp; Wright, P. (1994).</b>
+          The Persuasion Knowledge Model: How People Cope with Persuasion Attempts. <em>Journal of Consumer Research, 21(1)</em>, 1–31.
+          <a href="https://doi.org/10.1086/209380" target="_blank" rel="noreferrer">https://doi.org/10.1086/209380</a>
+        </div>
+        <div class="ref">
+          <b>Campbell, M. C. (1995).</b>
+          When Attention-Getting Advertising Tactics Elicit Consumer Inferences of Manipulative Intent: The Importance of Balancing Benefits and Investments. <em>Journal of Consumer Psychology, 4(3)</em>, 225–254.
+          <a href="https://doi.org/10.1207/s15327663jcp0403_02" target="_blank" rel="noreferrer">https://doi.org/10.1207/s15327663jcp0403_02</a>
+        </div>
+        <div class="ref">
+          <b>Berlyne, D. E. (1971).</b>
+          <em>Aesthetics and Psychobiology</em>. Appleton-Century-Crofts.
+          <a href="https://books.google.com/books/about/Aesthetics_and_Psychobiology.html?id=o5TWAAAAMAAJ" target="_blank" rel="noreferrer">Google Books</a>
+        </div>
+        <div class="ref">
+          <b>Barbosa, S., &amp; Bermúdez, J. P. (2024).</b>
+          The whole is larger than the sum of its parts: additive effects of SMS nudge bundles. <em>Frontiers in Communication, 9</em>, 1298607.
+          <a href="https://doi.org/10.3389/fcomm.2024.1298607" target="_blank" rel="noreferrer">https://doi.org/10.3389/fcomm.2024.1298607</a>
+        </div>
+        <div class="ref">
+          <b>Brehm, J. W. (1966).</b>
+          <em>A Theory of Psychological Reactance</em>. Academic Press.
+          <a href="https://books.google.com/books/about/A_Theory_of_Psychological_Reactance.html?id=0uN9AAAAMAAJ" target="_blank" rel="noreferrer">Google Books</a>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
