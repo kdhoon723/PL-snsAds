@@ -3,7 +3,7 @@
 공식: score = Σ(w × ĉ × p × t) × synergy(n) × 100
 
 변형:
-1. Full (PDF + 팀원 A 융합)
+1. Full (PDF 확장 설계)
 2. -신뢰도 보정 (ĉ → prob)
 3. -방향성 (p → 1.0)
 4. -강도 (t → 1.0)
@@ -23,7 +23,7 @@ from torch.utils.data import DataLoader
 import numpy as np
 from transformers import AutoTokenizer
 
-sys.path.insert(0, "PROJECT_ROOT/모델학습")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from train_v3_multitask import (
     MultiTaskClassifier, AdsDataset, load_csv,
     CAT, POLARITY, INTENSITY, WEIGHTS,
@@ -33,7 +33,7 @@ from scoring_v2 import (
     CategoryResult, synergy_factor, calibrate_confidence,
 )
 
-PROJECT = Path("PROJECT_ROOT")
+PROJECT = Path(__file__).resolve().parents[1]
 DATA = PROJECT / "통합데이터셋"
 RUNS = PROJECT / "모델학습" / "runs"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -125,7 +125,7 @@ def main():
 
     # 각 변형으로 점수 계산
     variants = {
-        "Full (PDF+팀원 A)": lambda i: calc_score(cat_probs[i], cat_preds[i], pol_preds[i], int_preds[i]),
+        "Full (PDF 확장)": lambda i: calc_score(cat_probs[i], cat_preds[i], pol_preds[i], int_preds[i]),
         "-신뢰도 보정": lambda i: calc_score(cat_probs[i], cat_preds[i], pol_preds[i], int_preds[i], use_calibration=False),
         "-방향성": lambda i: calc_score(cat_probs[i], cat_preds[i], pol_preds[i], int_preds[i], use_polarity=False),
         "-강도": lambda i: calc_score(cat_probs[i], cat_preds[i], pol_preds[i], int_preds[i], use_intensity=False),
@@ -174,10 +174,10 @@ def main():
     print("\n" + "=" * 80)
     print("📝 해석")
     print("=" * 80)
-    base = results["Full (PDF+팀원 A)"]["mae_vs_true"]
+    base = results["Full (PDF 확장)"]["mae_vs_true"]
     print(f"기준 (Full 공식) MAE: {base:.4f}")
     for name, r in results.items():
-        if name == "Full (PDF+팀원 A)":
+        if name == "Full (PDF 확장)":
             continue
         diff = r["mae_vs_true"] - base
         sign = "악화" if diff > 0 else "개선"

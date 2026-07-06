@@ -29,7 +29,8 @@ except ImportError as e:
     print("설치: pip install torch transformers scikit-learn numpy")
     raise SystemExit(1)
 
-ROOT = Path(r"PROJECT_ROOT\문장라벨링")
+PROJECT = Path(__file__).resolve().parents[1]
+ROOT = PROJECT / "문장라벨링"
 TRAIN_CSV = ROOT / "split_train.csv"
 VAL_CSV = ROOT / "split_val.csv"
 TEST_CSV = ROOT / "split_test.csv"

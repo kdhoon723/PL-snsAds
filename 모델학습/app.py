@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 from transformers import AutoTokenizer, AutoModel
 
-PROJECT = Path("PROJECT_ROOT")
+PROJECT = Path(__file__).resolve().parents[1]
 RUNS = PROJECT / "모델학습" / "runs"
 CAT = ["사회적_정체성", "희소성", "긴급성", "사회적_증명", "가격비교", "권위_신뢰", "호혜성"]
 WEIGHTS = {"권위_신뢰":0.221,"사회적_증명":0.159,"사회적_정체성":0.156,"호혜성":0.151,

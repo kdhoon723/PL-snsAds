@@ -28,7 +28,7 @@ from transformers import AutoTokenizer, AutoModel, get_linear_schedule_with_warm
 from sklearn.metrics import f1_score
 import numpy as np
 
-PROJECT = Path("PROJECT_ROOT")
+PROJECT = Path(__file__).resolve().parents[1]
 DATA = PROJECT / "통합데이터셋"
 RUNS_DIR = PROJECT / "모델학습" / "runs"
 RUNS_DIR.mkdir(parents=True, exist_ok=True)

@@ -13,14 +13,14 @@ from sklearn.metrics import f1_score
 import numpy as np
 
 import sys
-sys.path.insert(0, "PROJECT_ROOT/모델학습")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from train_v3_multitask import (
     load_csv, AdsDataset, MultiTaskClassifier, evaluate, tune_thresholds,
     CAT, POLARITY, INTENSITY, POL_IDX, INT_IDX, NUM_CAT, WEIGHTS,
     POLARITY_SCORE, INTENSITY_SCORE, synergy, calibrate,
 )
 
-PROJECT = Path("PROJECT_ROOT")
+PROJECT = Path(__file__).resolve().parents[1]
 DATA = PROJECT / "통합데이터셋"
 RUNS = PROJECT / "모델학습" / "runs"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"

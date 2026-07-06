@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from transformers import AutoTokenizer
 import numpy as np
 
-sys.path.insert(0, "PROJECT_ROOT/모델학습")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from train_v3_multitask import (
     MultiTaskClassifier, CAT, POLARITY, INTENSITY,
     WEIGHTS, POLARITY_SCORE, INTENSITY_SCORE,
@@ -22,7 +22,7 @@ from scoring_v2 import (
     CategoryResult, calculate_ad_score, calibrate_confidence, synergy_factor,
 )
 
-PROJECT = Path("PROJECT_ROOT")
+PROJECT = Path(__file__).resolve().parents[1]
 RUNS = PROJECT / "모델학습" / "runs"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 

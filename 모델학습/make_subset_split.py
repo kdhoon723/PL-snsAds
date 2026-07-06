@@ -9,7 +9,7 @@
 import argparse, csv, json
 from pathlib import Path
 
-PROJECT = Path("PROJECT_ROOT")
+PROJECT = Path(__file__).resolve().parents[1]
 SRC = PROJECT / "통합데이터셋"
 CAT = ["사회적_정체성","희소성","긴급성","사회적_증명","가격비교","권위_신뢰","호혜성"]
 

@@ -183,7 +183,7 @@ def fig_synergy():
 # ── 06 점수식 ablation ───────────────────────────────────────
 def fig_ablation():
     r=json.load(open(os.path.join(HERE,"..","scoring_ablation_result.json")))["variants"]
-    order=[("v1 단순 (Σ w·prob)×100","v1 단순"),("Full (PDF+팀원 A)","Full (PDF)"),
+    order=[("v1 단순 (Σ w·prob)×100","v1 단순"),("Full (PDF 확장)","Full (PDF)"),
            ("-방향성","− 방향성"),("-시너지","− 시너지"),("-강도","− 강도"),("-신뢰도 보정","− 신뢰도 (채택)")]
     labels=[s for _,s in order]; vals=[r[k]["mae_vs_true"] for k,_ in order]
     colors=[GRAY,GRAY,GRAY,GRAY,GRAY,GREEN]

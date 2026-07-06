@@ -18,7 +18,7 @@ from transformers import AutoTokenizer, AutoModel
 from sklearn.metrics import f1_score, precision_score, recall_score
 import numpy as np
 
-PROJECT = Path("PROJECT_ROOT")
+PROJECT = Path(__file__).resolve().parents[1]
 DATA = PROJECT / "통합데이터셋"
 RUNS = PROJECT / "모델학습" / "runs"
 CAT = ["사회적_정체성","희소성","긴급성","사회적_증명","가격비교","권위_신뢰","호혜성"]

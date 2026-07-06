@@ -30,7 +30,7 @@ from sklearn.metrics import f1_score, precision_score, recall_score
 import numpy as np
 
 
-PROJECT = Path("PROJECT_ROOT")
+PROJECT = Path(__file__).resolve().parents[1]
 DATA = PROJECT / "통합데이터셋"
 TRAIN_CSV = DATA / "split_train.csv"
 VAL_CSV = DATA / "split_val.csv"

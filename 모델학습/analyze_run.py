@@ -11,7 +11,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-PROJECT = Path("PROJECT_ROOT")
+PROJECT = Path(__file__).resolve().parents[1]
 RUNS = PROJECT / "모델학습" / "runs"
 
 CAT_COLS = ["사회적_정체성", "희소성", "긴급성", "사회적_증명", "가격비교", "권위_신뢰", "호혜성"]
