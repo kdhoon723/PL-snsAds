@@ -53,3 +53,13 @@ AGENTS.local.md
 .codex/
 .omx/
 수집/apify/raw/
+
+# Public repo: keep raw/private research data and generated run artifacts local
+라벨링/
+문장라벨링/
+수집/
+통합데이터셋*/
+최종 발표자료 준비/
+팀_결과보고서.md
+모델학습/runs/
+모델학습/figures/*.npz
