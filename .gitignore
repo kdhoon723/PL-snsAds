@@ -46,3 +46,10 @@ CLAUDE.local.md
 # Playwright 임시 산출물
 .playwright-mcp/
 ui-*.png
+# Local-only AI/agent instructions and raw collection dumps
+AGENTS.md
+CLAUDE.md
+AGENTS.local.md
+.codex/
+.omx/
+수집/apify/raw/
