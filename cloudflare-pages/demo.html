@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>정적 데모 · 광고 소비심리 자극 측정</title>
-  <meta name="description" content="SNS 광고 소비심리 자극 점수 측정 모델의 발표 확인용 정적 데모" />
+  <title>데모 · 광고 소비심리 자극 측정</title>
+  <meta name="description" content="SNS 광고 소비심리 자극 점수 측정 모델의 예시 데모" />
   <link rel="stylesheet" href="assets/site.css" />
 </head>
 <body>
@@ -13,24 +13,24 @@
       <a class="brand" href="index.html"><span class="brand-dot"></span> AD Persuasion Meter</a>
       <div class="nav-links">
         <a class="nav-link" href="index.html">프로젝트</a>
-        <a class="nav-link active" href="demo.html">정적 데모</a>
+        <a class="nav-link active" href="demo.html">데모</a>
       </div>
     </nav>
 
     <header class="demo-header">
-      <div class="brand"><span class="brand-dot"></span> Static Demo</div>
+      <div class="brand"><span class="brand-dot"></span> Example Demo</div>
       <h1>광고 소비심리 자극 측정</h1>
-      <p class="sub">SNS 광고의 7가지 설득 전략을 탐지하고 자극 강도를 정량화합니다. <strong>KLUE-RoBERTa-large</strong> · 발표 확인용 정적 데모</p>
+      <p class="sub">SNS 광고의 7가지 설득 전략을 탐지하고 자극 강도를 정량화합니다. <strong>KLUE-RoBERTa-large</strong> · 예시 데모</p>
     </header>
 
     <section class="notice">
-      <b>정적 데모 안내:</b> 이 페이지는 실제 모델 서버를 호출하지 않습니다. 아래 예시 문구에 대해 사전에 계산·정리한 결과만 기존 UI와 같은 형태로 보여줍니다.
+      <b>안내:</b> 이 페이지는 준비된 예시 문구를 중심으로 화면과 결과 해석 방식을 보여주는 데모입니다.
     </section>
 
     <section class="card input-card" aria-label="광고 문구 입력">
       <textarea id="text" placeholder="아래 예시를 선택하거나 광고 텍스트를 입력하세요"></textarea>
       <div class="input-row">
-        <label class="toggle" title="실제 서버의 v2 점수 공식 표시">
+        <label class="toggle" title="v2 점수 공식 표시">
           <input type="checkbox" id="v2toggle" checked disabled />
           <span>점수 공식 (v2)</span>
         </label>
@@ -42,7 +42,7 @@
     <section class="subopts" id="v2subopts">
       <div class="subopts-row">
         <span class="subopts-label">v2 옵션:</span>
-        <label title="정적 데모에서도 점수식 설명을 위해 시너지 보정을 켜고 끌 수 있습니다.">
+        <label title="점수식 설명을 위해 시너지 보정을 켜고 끌 수 있습니다.">
           <input type="checkbox" id="useSynergy" checked /> 시너지 보정 <small>(Inverted-U)</small>
         </label>
         <span>신뢰도 보정은 실험 결과 제거됨</span>
@@ -66,7 +66,7 @@
 
     <section id="result"></section>
 
-    <p class="footer">이 페이지의 결과는 정적 예시입니다. 임의 문구 분석이나 이미지 OCR은 실제 FastAPI/PyTorch 서버가 필요합니다.</p>
+    <p class="footer">준비된 예시 결과를 통해 점수와 카테고리 표시 방식을 확인할 수 있습니다.</p>
   </main>
 
 <script>
@@ -187,7 +187,7 @@ function analyze() {
     const typed = $('#text').value.trim();
     if (typed && typed !== DEMOS[activeKey].text) {
       $('#result').classList.add('show');
-      $('#result').innerHTML = `<div class="error">정적 데모에서는 준비된 예시만 표시합니다. 아래 예시 버튼을 선택하면 기존 UI 형태로 결과를 볼 수 있습니다.</div>`;
+      $('#result').innerHTML = `<div class="error">현재 데모에서는 준비된 예시만 확인할 수 있습니다. 아래 예시 버튼을 선택해 주세요.</div>`;
       return;
     }
   }
@@ -218,7 +218,7 @@ function render(d) {
   const json = {
     version: 'static-demo-v2',
     text: d.text,
-    model: '정적 데모: 사전 계산 예시',
+    model: '예시 데모: 사전 계산 결과',
     final_score_100: Number(s.score.toFixed(2)),
     raw_score: Number(s.raw.toFixed(4)),
     n_positive_categories: s.n,
@@ -236,7 +236,7 @@ function render(d) {
       ${tags ? `<div class="actives">${tags}</div>` : ''}
     </div>
     <div class="cats">${rows}</div>
-    <div class="meta"><span>↑긍정 ·중립 ↓부정 / ●●●강 ●●보통 ●약</span><span>정적 예시 데이터</span></div>
+    <div class="meta"><span>↑긍정 ·중립 ↓부정 / ●●●강 ●●보통 ●약</span><span>예시 데이터</span></div>
     <div class="formula-bar" style="margin-top:12px;background:var(--surface-soft);padding:10px 14px;border-radius:10px;border:0">
       <span class="formula-label">사용된 공식</span>
       <code class="formula-code">${formulaText()}</code>

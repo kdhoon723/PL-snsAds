@@ -46,8 +46,8 @@ h1 { font-size: clamp(34px, 7vw, 62px); line-height: 1.08; letter-spacing: -0.06
 .btn:hover { transform: translateY(-1px); border-color: #d6d3d1; }
 .btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 .btn.primary:disabled { opacity: .55; cursor: default; transform: none; }
-.notice { border: 1px solid #fed7aa; background: #fff7ed; color: #9a3412; border-radius: 14px; padding: 13px 15px; font-size: 14px; line-height: 1.55; margin: 18px 0 24px; }
-.notice b { color: #7c2d12; }
+.notice { border: 1px solid var(--border); background: var(--surface-soft); color: var(--text-soft); border-radius: 14px; padding: 12px 14px; font-size: 14px; line-height: 1.55; margin: 18px 0 24px; }
+.notice b { color: var(--text); }
 .grid { display: grid; gap: 12px; }
 .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
