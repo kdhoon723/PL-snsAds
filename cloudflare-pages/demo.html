@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>정적 데모 · 광고 소비심리 자극 측정</title>
+  <meta name="description" content="SNS 광고 소비심리 자극 점수 측정 모델의 발표 확인용 정적 데모" />
+  <link rel="stylesheet" href="assets/site.css" />
+</head>
+<body>
+  <main class="container demo-container">
+    <nav class="nav" aria-label="페이지 이동">
+      <a class="brand" href="index.html"><span class="brand-dot"></span> AD Persuasion Meter</a>
+      <div class="nav-links">
+        <a class="nav-link" href="index.html">프로젝트</a>
+        <a class="nav-link active" href="demo.html">정적 데모</a>
+      </div>
+    </nav>
+
+    <header class="demo-header">
+      <div class="brand"><span class="brand-dot"></span> Static Demo</div>
+      <h1>광고 소비심리 자극 측정</h1>
+      <p class="sub">SNS 광고의 7가지 설득 전략을 탐지하고 자극 강도를 정량화합니다. <strong>KLUE-RoBERTa-large</strong> · 발표 확인용 정적 데모</p>
+    </header>
+
+    <section class="notice">
+      <b>정적 데모 안내:</b> 이 페이지는 실제 모델 서버를 호출하지 않습니다. 아래 예시 문구에 대해 사전에 계산·정리한 결과만 기존 UI와 같은 형태로 보여줍니다.
+    </section>
+
+    <section class="card input-card" aria-label="광고 문구 입력">
+      <textarea id="text" placeholder="아래 예시를 선택하거나 광고 텍스트를 입력하세요"></textarea>
+      <div class="input-row">
+        <label class="toggle" title="실제 서버의 v2 점수 공식 표시">
+          <input type="checkbox" id="v2toggle" checked disabled />
+          <span>점수 공식 (v2)</span>
+        </label>
+        <span class="shortcut">⌘+Enter</span>
+        <button class="btn primary" id="go">분석</button>
+      </div>
+    </section>
+
+    <section class="subopts" id="v2subopts">
+      <div class="subopts-row">
+        <span class="subopts-label">v2 옵션:</span>
+        <label title="정적 데모에서도 점수식 설명을 위해 시너지 보정을 켜고 끌 수 있습니다.">
+          <input type="checkbox" id="useSynergy" checked /> 시너지 보정 <small>(Inverted-U)</small>
+        </label>
+        <span>신뢰도 보정은 실험 결과 제거됨</span>
+      </div>
+      <div class="formula-bar">
+        <span class="formula-label">현재 공식</span>
+        <code class="formula-code" id="formulaDisplay">Score = Σ(Wᵢ × probᵢ × pᵢ × tᵢ) × S(n) × 100</code>
+      </div>
+    </section>
+
+    <div class="examples" aria-label="예시 문구">
+      <button class="chip active" data-demo="sale">오늘만 50% 할인! 무료배송 ✨</button>
+      <button class="chip" data-demo="identity">갓생러들의 필수템! 직장인 100명이 선택</button>
+      <button class="chip" data-demo="celebrity">박보영이 직접 추천한 우리 동네 맛집</button>
+      <button class="chip" data-demo="limited">한정판 콜라보 굿즈, 선착순 300명</button>
+      <button class="chip" data-demo="doctor">서울대 치과병원 전문의 임플란트</button>
+      <button class="chip" data-demo="coupon">신규 가입 시 5만원 쿠폰팩 + 첫 구매 무료배송</button>
+      <button class="chip" data-demo="no1">대한민국 NO.1 헬스&뷰티 스토어</button>
+      <button class="chip" data-demo="lastchance">내일은 없는 마지막 기회! 70% SALE</button>
+    </div>
+
+    <section id="result"></section>
+
+    <p class="footer">이 페이지의 결과는 정적 예시입니다. 임의 문구 분석이나 이미지 OCR은 실제 FastAPI/PyTorch 서버가 필요합니다.</p>
+  </main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+
+const COLORS = {
+  '사회적_정체성': 'var(--identity)',
+  '희소성': 'var(--scarcity)',
+  '긴급성': 'var(--urgency)',
+  '사회적_증명': 'var(--proof)',
+  '가격비교': 'var(--price)',
+  '권위_신뢰': 'var(--authority)',
+  '호혜성': 'var(--recip)',
+};
+const CAT = ['사회적_정체성','희소성','긴급성','사회적_증명','가격비교','권위_신뢰','호혜성'];
+const WEIGHTS = {'권위_신뢰':0.221,'사회적_증명':0.159,'사회적_정체성':0.156,'호혜성':0.151,'희소성':0.126,'긴급성':0.096,'가격비교':0.091};
+const THR = {'사회적_정체성':0.66,'희소성':0.66,'긴급성':0.70,'사회적_증명':0.34,'가격비교':0.64,'권위_신뢰':0.48,'호혜성':0.66};
+const INT_COEF = {'강':1.5,'보통':1.0,'약':0.5};
+const POL_COEF = {'긍정':1.0,'중립':0.5,'부정':-1.0};
+const POL_EMOJI = {'긍정':'↑','중립':'·','부정':'↓'};
+const INT_EMOJI = {'강':'●●●','보통':'●●','약':'●'};
+
+function cat(category, probability, predicted=false, polarity=null, intensity=null) {
+  return {
+    category,
+    probability,
+    threshold: THR[category],
+    predicted: predicted ? 1 : 0,
+    weight: WEIGHTS[category],
+    polarity: predicted ? (polarity || '긍정') : null,
+    intensity: predicted ? (intensity || '보통') : null,
+  };
+}
+
+const DEMOS = {
+  sale: {
+    text: '오늘만 50% 할인! 무료배송 ✨',
+    note: '발표자료의 대표 예시입니다.',
+    per_category: [
+      cat('사회적_정체성', .22), cat('희소성', .18), cat('긴급성', .94, true, '긍정', '강'),
+      cat('사회적_증명', .18), cat('가격비교', .94, true, '긍정', '강'), cat('권위_신뢰', .12), cat('호혜성', .95, true, '긍정', '보통'),
+    ],
+  },
+  identity: {
+    text: '갓생러들의 필수템! 직장인 100명이 선택',
+    per_category: [
+      cat('사회적_정체성', .82, true, '긍정', '보통'), cat('희소성', .21), cat('긴급성', .18),
+      cat('사회적_증명', .78, true, '긍정', '보통'), cat('가격비교', .16), cat('권위_신뢰', .25), cat('호혜성', .18),
+    ],
+  },
+  celebrity: {
+    text: '박보영이 직접 추천한 우리 동네 맛집',
+    per_category: [
+      cat('사회적_정체성', .26), cat('희소성', .12), cat('긴급성', .11),
+      cat('사회적_증명', .31), cat('가격비교', .08), cat('권위_신뢰', .62, true, '긍정', '보통'), cat('호혜성', .13),
+    ],
+  },
+  limited: {
+    text: '한정판 콜라보 굿즈, 선착순 300명',
+    per_category: [
+      cat('사회적_정체성', .38), cat('희소성', .94, true, '긍정', '강'), cat('긴급성', .75, true, '긍정', '보통'),
+      cat('사회적_증명', .27), cat('가격비교', .19), cat('권위_신뢰', .16), cat('호혜성', .15),
+    ],
+  },
+  doctor: {
+    text: '서울대 치과병원 전문의 임플란트',
+    per_category: [
+      cat('사회적_정체성', .18), cat('희소성', .10), cat('긴급성', .09),
+      cat('사회적_증명', .24), cat('가격비교', .07), cat('권위_신뢰', .90, true, '긍정', '강'), cat('호혜성', .11),
+    ],
+  },
+  coupon: {
+    text: '신규 가입 시 5만원 쿠폰팩 + 첫 구매 무료배송',
+    per_category: [
+      cat('사회적_정체성', .12), cat('희소성', .19), cat('긴급성', .22),
+      cat('사회적_증명', .18), cat('가격비교', .75, true, '긍정', '보통'), cat('권위_신뢰', .10), cat('호혜성', .97, true, '긍정', '강'),
+    ],
+  },
+  no1: {
+    text: '대한민국 NO.1 헬스&뷰티 스토어',
+    per_category: [
+      cat('사회적_정체성', .34), cat('희소성', .15), cat('긴급성', .10),
+      cat('사회적_증명', .92, true, '긍정', '강'), cat('가격비교', .12), cat('권위_신뢰', .54, true, '긍정', '보통'), cat('호혜성', .09),
+    ],
+  },
+  lastchance: {
+    text: '내일은 없는 마지막 기회! 70% SALE',
+    per_category: [
+      cat('사회적_정체성', .16), cat('희소성', .84, true, '긍정', '보통'), cat('긴급성', .97, true, '긍정', '강'),
+      cat('사회적_증명', .23), cat('가격비교', .97, true, '긍정', '강'), cat('권위_신뢰', .11), cat('호혜성', .22),
+    ],
+  },
+};
+
+let activeKey = 'sale';
+
+function synergyFactor(n) {
+  if (!$('#useSynergy').checked) return 1.0;
+  if (n <= 1) return 1.0;
+  if (n === 2) return 1.15;
+  if (n === 3) return 1.25;
+  return 0.90;
+}
+function scoreDemo(d) {
+  const positives = d.per_category.filter(c => c.predicted);
+  const sum = positives.reduce((acc, c) => acc + c.weight * c.probability * POL_COEF[c.polarity] * INT_COEF[c.intensity], 0);
+  const syn = synergyFactor(positives.length);
+  return { score: sum * syn * 100, raw: sum * syn, n: positives.length, synergy: syn };
+}
+function findDemoByText(text) {
+  const clean = text.trim();
+  return Object.entries(DEMOS).find(([, d]) => d.text === clean)?.[0] || null;
+}
+function analyze() {
+  const key = findDemoByText($('#text').value) || activeKey;
+  if (!findDemoByText($('#text').value)) {
+    const typed = $('#text').value.trim();
+    if (typed && typed !== DEMOS[activeKey].text) {
+      $('#result').classList.add('show');
+      $('#result').innerHTML = `<div class="error">정적 데모에서는 준비된 예시만 표시합니다. 아래 예시 버튼을 선택하면 기존 UI 형태로 결과를 볼 수 있습니다.</div>`;
+      return;
+    }
+  }
+  activeKey = key;
+  render(DEMOS[key]);
+  $$('.chip').forEach(ch => ch.classList.toggle('active', ch.dataset.demo === key));
+}
+function render(d) {
+  const result = $('#result');
+  const s = scoreDemo(d);
+  const pct = Math.min(100, Math.max(0, s.score));
+  const levelClass = s.score >= 50 ? 'high' : s.score >= 25 ? 'mid' : s.score >= 5 ? 'low' : 'none';
+  const levelTxt = s.score >= 50 ? '강한 자극' : s.score >= 25 ? '중간 자극' : s.score >= 5 ? '약한 자극' : '거의 없음';
+  const tags = d.per_category.filter(c => c.predicted).map(c =>
+    `<span class="tag" title="${c.polarity} ${c.intensity}"><span class="tag-dot" style="background:${COLORS[c.category]}"></span>${label(c.category)}</span>`
+  ).join('');
+  const rows = [...d.per_category].sort((a,b) => b.weight - a.weight).map(c => {
+    const w = Math.min(100, c.probability * 100);
+    const tpct = Math.min(100, c.threshold * 100);
+    const cls = c.predicted ? 'pos' : '';
+    const mini = c.predicted ? `<span style="font-size:11px;color:var(--text-soft);margin-left:6px">${POL_EMOJI[c.polarity]} ${INT_EMOJI[c.intensity]}</span>` : '';
+    return `<div class="cat-row ${cls}" data-c="${c.category}">
+      <div class="cat-name"><span class="cat-dot" style="background:${COLORS[c.category]}"></span>${label(c.category)}${mini}</div>
+      <div class="cat-bar"><div class="cat-bar-fill" style="width:${w}%; background:${COLORS[c.category]}"></div><div class="cat-bar-thr" style="left:${tpct}%"></div></div>
+      <div class="cat-prob">${(c.probability * 100).toFixed(0)}%</div>
+    </div>`;
+  }).join('');
+  const json = {
+    version: 'static-demo-v2',
+    text: d.text,
+    model: '정적 데모: 사전 계산 예시',
+    final_score_100: Number(s.score.toFixed(2)),
+    raw_score: Number(s.raw.toFixed(4)),
+    n_positive_categories: s.n,
+    synergy_factor: s.synergy,
+    options: { use_synergy: $('#useSynergy').checked },
+    per_category: d.per_category.map(c => ({...c, score_contribution: c.predicted ? Number((c.weight*c.probability*POL_COEF[c.polarity]*INT_COEF[c.intensity]).toFixed(4)) : 0})),
+  };
+  result.classList.add('show');
+  result.innerHTML = `
+    <div class="card hero-result">
+      <div class="level ${levelClass}">${levelTxt} · 종합 점수</div>
+      <div class="score">${s.score.toFixed(1)}<span style="font-size:16px;color:var(--text-mute);font-weight:500"> / 100</span></div>
+      <div class="gauge"><div class="gauge-fill" style="width:${pct}%"></div></div>
+      <div style="font-size:12px;color:var(--text-mute);margin-top:8px">n=${s.n} 카테고리 × 시너지 ×${s.synergy} · ${$('#useSynergy').checked ? '시너지 ON' : '시너지 OFF'}</div>
+      ${tags ? `<div class="actives">${tags}</div>` : ''}
+    </div>
+    <div class="cats">${rows}</div>
+    <div class="meta"><span>↑긍정 ·중립 ↓부정 / ●●●강 ●●보통 ●약</span><span>정적 예시 데이터</span></div>
+    <div class="formula-bar" style="margin-top:12px;background:var(--surface-soft);padding:10px 14px;border-radius:10px;border:0">
+      <span class="formula-label">사용된 공식</span>
+      <code class="formula-code">${formulaText()}</code>
+    </div>
+    <details><summary>상세 JSON</summary><pre>${escapeHtml(JSON.stringify(json, null, 2))}</pre></details>
+  `;
+}
+function label(s) { return s.replace('_', ' '); }
+function formulaText() {
+  return $('#useSynergy').checked ? 'Score = Σ(Wᵢ × probᵢ × pᵢ × tᵢ) × S(n) × 100' : 'Score = Σ(Wᵢ × probᵢ × pᵢ × tᵢ) × 100';
+}
+function updateFormula() { $('#formulaDisplay').textContent = formulaText(); if ($('#result').classList.contains('show')) render(DEMOS[activeKey]); }
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+$$('.chip').forEach(ch => ch.addEventListener('click', () => {
+  activeKey = ch.dataset.demo;
+  $('#text').value = DEMOS[activeKey].text;
+  analyze();
+}));
+$('#go').addEventListener('click', analyze);
+$('#text').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); analyze(); } });
+$('#useSynergy').addEventListener('change', updateFormula);
+$('#text').value = DEMOS.sale.text;
+updateFormula();
+render(DEMOS.sale);
+</script>
+</body>
+</html>

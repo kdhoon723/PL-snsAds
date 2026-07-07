@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SNS 광고 소비심리 자극 점수 측정</title>
+  <meta name="description" content="SNS 광고 문구의 소비심리 자극 요소를 7개 카테고리로 탐지하고 점수화한 연구 프로젝트 소개" />
+  <link rel="stylesheet" href="assets/site.css" />
+</head>
+<body>
+  <main class="container">
+    <nav class="nav" aria-label="페이지 이동">
+      <a class="brand" href="index.html"><span class="brand-dot"></span> AD Persuasion Meter</a>
+      <div class="nav-links">
+        <a class="nav-link active" href="index.html">프로젝트</a>
+        <a class="nav-link" href="demo.html">정적 데모</a>
+      </div>
+    </nav>
+
+    <header class="hero-head">
+      <p class="kicker">SNS 광고 텍스트 분석 연구</p>
+      <h1>소비심리를 자극하는 광고 문구를 점수로 보여주는 모델</h1>
+      <p class="lead">
+        SNS 광고 문구 안의 <strong>긴급성, 희소성, 권위·신뢰, 사회적 증명, 호혜성, 가격비교, 사회적 정체성</strong>을 탐지하고,
+        카테고리별 가중치·방향성·강도를 반영해 소비심리 자극 정도를 정량화한 프로젝트입니다.
+      </p>
+      <div class="actions">
+        <a class="btn primary" href="demo.html">데모 페이지 보기</a>
+        <a class="btn" href="#flow">연구 흐름 보기</a>
+      </div>
+    </header>
+
+    <section class="notice">
+      <b>배포용 안내:</b> 이 사이트는 Cloudflare Pages 같은 정적 호스팅에 올리기 위한 확인용 페이지입니다.
+      실제 PyTorch 모델 추론 서버는 포함하지 않고, 데모 페이지에는 사전에 계산된 예시 결과만 표시합니다.
+    </section>
+
+    <section class="grid three" aria-label="주요 성과">
+      <div class="card metric"><span class="value">6,149</span><span class="label">SNS 광고 텍스트 데이터</span></div>
+      <div class="card metric"><span class="value">7개</span><span class="label">소비심리 자극 카테고리</span></div>
+      <div class="card metric"><span class="value">0.826</span><span class="label">분류 성능 Macro-F1</span></div>
+    </section>
+
+    <section class="section" id="flow">
+      <h2>연구 흐름</h2>
+      <div class="flow" role="list">
+        <div class="flow-step" role="listitem"><b>01 데이터 수집</b><span>Meta Ads Library와 네이버 광고 문구 수집</span></div>
+        <div class="flow-step" role="listitem"><b>02 정제</b><span>중복·분석 부적합 데이터 제거</span></div>
+        <div class="flow-step" role="listitem"><b>03 라벨링</b><span>카테고리, 방향성, 강도 기준으로 라벨 구축</span></div>
+        <div class="flow-step" role="listitem"><b>04 모델 학습</b><span>KLUE-RoBERTa-large 기반 멀티태스크 학습</span></div>
+        <div class="flow-step" role="listitem"><b>05 점수 계산</b><span>가중치 Wᵢ, 확률, 방향성, 강도, 시너지 반영</span></div>
+        <div class="flow-step" role="listitem"><b>06 웹 구현</b><span>점수와 카테고리별 분석 결과 시각화</span></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>무엇을 계산하나요?</h2>
+      <div class="grid two">
+        <div class="card">
+          <h3>모델이 예측하는 값</h3>
+          <ul>
+            <li>7개 설득 전략이 포함될 확률</li>
+            <li>소비를 자극하는 방향성</li>
+            <li>표현의 강도: 강 / 보통 / 약</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>점수가 의미하는 것</h3>
+          <p>
+            점수는 구매 확률이 아니라, 광고 문구가 모델 기준에서 얼마나 많은 소비심리 자극 요소를 강하게 포함하는지를 나타내는 상대적 지표입니다.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>7개 카테고리</h2>
+      <div class="card" style="overflow-x:auto">
+        <table class="category-table">
+          <thead><tr><th>카테고리</th><th>예시</th><th>의미</th></tr></thead>
+          <tbody>
+            <tr><td>권위·신뢰</td><td>전문의 추천, 인증</td><td>전문가나 기관을 통해 신뢰를 높이는 표현</td></tr>
+            <tr><td>사회적 증명</td><td>누적 판매 10만 개</td><td>많은 사람이 선택했다는 점을 강조</td></tr>
+            <tr><td>사회적 정체성</td><td>갓생러 필수템</td><td>특정 집단이나 이미지에 속하고 싶게 만드는 표현</td></tr>
+            <tr><td>호혜성</td><td>무료배송, 사은품</td><td>소비자에게 먼저 혜택을 제공</td></tr>
+            <tr><td>희소성</td><td>품절임박, 한정 수량</td><td>수량 제한을 강조</td></tr>
+            <tr><td>긴급성</td><td>오늘까지만, 마감 임박</td><td>시간 제한을 강조</td></tr>
+            <tr><td>가격비교</td><td>50% 할인, 정가 대비</td><td>가격적 이득을 부각</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>기술 요약</h2>
+      <div class="grid two">
+        <div class="card">
+          <h3>벡터화 이후의 과정</h3>
+          <p>
+            KLUE-RoBERTa-large가 문장을 문맥 벡터로 표현하고, 뒤에 붙인 분류 헤드가 카테고리 확률·방향성·강도를 예측합니다.
+            이후 예측값을 점수 계산식에 넣습니다.
+          </p>
+        </div>
+        <div class="card">
+          <h3>점수식</h3>
+          <p style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--text);font-size:14px">
+            Score = Σ(Wᵢ × probᵢ × pᵢ × tᵢ) × S(n) × 100
+          </p>
+          <p style="margin-top:8px">Wᵢ는 문헌 기반 가중치, probᵢ는 모델 확률, pᵢ는 방향성, tᵢ는 표현 강도, S(n)은 동시 탐지 카테고리 수 보정입니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>한계와 확장 가능성</h2>
+      <div class="grid two">
+        <div class="card">
+          <h3>한계</h3>
+          <ul>
+            <li>가중치는 실제 구매 전환율이 아닌 선행연구 기반 초기값</li>
+            <li>현재 데모는 실제 모델 추론이 아닌 정적 예시</li>
+            <li>텍스트 중심이라 이미지·영상 자극 요소는 미반영</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>확장</h3>
+          <ul>
+            <li>클릭률·구매 전환율 기반 가중치 보정</li>
+            <li>이미지·영상 포함 멀티모달 분석</li>
+            <li>과소비 유도 광고나 사기성 광고 모니터링 보조 지표</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <p class="footer">Static demo package for Cloudflare Pages · 실제 모델 서버 없이도 발표 내용과 예시 결과를 확인할 수 있도록 구성했습니다.</p>
+  </main>
+</body>
+</html>
