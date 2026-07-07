@@ -8,6 +8,16 @@
 - `demo.html` — 기존 웹 UI와 유사한 정적 데모 페이지
 - `assets/site.css` — 공통 스타일
 
+
+## 현재 배포
+
+- Cloudflare Pages project: `snsads`
+- Production URL: <https://snsads.pages.dev>
+- Custom domain: <https://pl.example.invalid>
+- 연결일: 2026-07-07
+
+`pl.example.invalid`의 기존 Cloudflare Tunnel CNAME은 Pages 대상인 `snsads.pages.dev`로 전환했습니다.
+
 ## 배포 설정 예시
 
 Cloudflare Pages에서 이 저장소를 연결할 때:
