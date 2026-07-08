@@ -63,3 +63,18 @@ AGENTS.local.md
 팀_결과보고서.md
 모델학습/runs/
 모델학습/figures/*.npz
+
+# Local publication / presentation drafts and generated visual references
+/.wrangler/
+/assets/ppt_references/
+/SNS 광고 텍스트의 소비심리 자극점수 측정 모델 및 프로그램 개발*.pdf
+/학술대회 수정*.pdf
+/가중치 검사.pdf
+/*_light.html
+/*_light.png
+/*_preview.png
+/*_preview.html
+/category_*_light*.png
+/dataset_*.html
+/dataset_quality_terminal.html
+/모델학습/figures/figures.zip
