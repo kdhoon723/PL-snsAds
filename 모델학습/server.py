@@ -12,7 +12,9 @@
 """
 from __future__ import annotations
 import json
+import os
 import sys
+from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import Literal
@@ -21,7 +23,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 from PIL import Image
 from pydantic import BaseModel
@@ -34,6 +36,37 @@ CAT = ["사회적_정체성", "희소성", "긴급성", "사회적_증명", "가
 WEIGHTS = {"권위_신뢰":0.221,"사회적_증명":0.159,"사회적_정체성":0.156,"호혜성":0.151,
            "희소성":0.126,"긴급성":0.096,"가격비교":0.091}
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+@dataclass(frozen=True)
+class ServingProfile:
+    v1_runs: tuple[str, ...]
+    v2_runs: tuple[str, ...]
+    v2_threshold_run: str
+    v2_threshold_key: str
+    ocr: bool
+    label: str
+
+
+PROFILES = {
+    "full": ServingProfile(
+        v1_runs=("cycle19_dropout0.1", "cycle13_claude_only", "cycle18_dropout0.5"),
+        v2_runs=("cycle41_taskweight_cat", "cycle48_seed7", "cycle39_taskweight_balanced", "cycle46_dropout0.2"),
+        v2_threshold_run="cycle50_ensemble_41_48_39_46",
+        v2_threshold_key="thresholds",
+        ocr=True,
+        label="v2 점수 (Cycle 50 multitask 4-앙상블, F1 0.8296)",
+    ),
+    "cpu-demo": ServingProfile(
+        v1_runs=(),
+        v2_runs=("cycle41_taskweight_cat",),
+        v2_threshold_run="cycle41_taskweight_cat",
+        v2_threshold_key="best_thresholds",
+        ocr=False,
+        label="v2 점수 (Cycle 41 multitask 단일, F1 0.826)",
+    ),
+}
+PROFILE = PROFILES[os.environ.get("SNSADS_PROFILE", "full")]
 
 # v2 추가
 sys.path.insert(0, str(PROJECT / "모델학습"))
@@ -68,40 +101,39 @@ def load_run(run_name: str):
 
 
 print(f"🔧 Device: {DEVICE}")
-print("📥 Loading v1 classifier models (Cycle 19/13/18, F1 0.787)...")
 MODELS = {}
-for run_name in ["cycle19_dropout0.1", "cycle13_claude_only", "cycle18_dropout0.5"]:
-    MODELS[run_name] = load_run(run_name)
-    print(f"   ✓ {run_name}")
-ENSEMBLE_THR = [
-    json.loads((RUNS / "cycle23_ensemble_gamma1" / "result.json").read_text(encoding="utf-8"))["thresholds"][c]
-    for c in CAT
-]
-print("✅ v1 classifiers loaded")
+ENSEMBLE_THR = None
+if PROFILE.v1_runs:
+    print("📥 Loading v1 classifier models (Cycle 19/13/18, F1 0.787)...")
+    for run_name in PROFILE.v1_runs:
+        MODELS[run_name] = load_run(run_name)
+        print(f"   ✓ {run_name}")
+    ENSEMBLE_THR = [
+        json.loads((RUNS / "cycle23_ensemble_gamma1" / "result.json").read_text(encoding="utf-8"))["thresholds"][c]
+        for c in CAT
+    ]
+    print("✅ v1 classifiers loaded")
 
-# v2 multitask 모델 (Cycle 50 4-앙상블, F1 0.8296)
 V2_MODELS = []
 V2_THR = None
 def load_v2():
     global V2_MODELS, V2_THR
     if V2_MODELS:
         return
-    print("📥 Loading v2 multitask models (Cycle 41/48/39/46 ensemble, F1 0.830)...")
-    for rn in ["cycle41_taskweight_cat", "cycle48_seed7", "cycle39_taskweight_balanced", "cycle46_dropout0.2"]:
+    print(f"📥 Loading v2 multitask models ({PROFILE.label})...")
+    for rn in PROFILE.v2_runs:
         rdir = RUNS / rn
         cfg = json.loads((rdir / "config.json").read_text(encoding="utf-8"))
         tok = AutoTokenizer.from_pretrained(cfg["model"])
-        m = MultiTaskClassifier(cfg["model"], cfg["dropout"]).to(DEVICE)
-        m.load_state_dict(torch.load(rdir / "best_model.pt", weights_only=True, map_location=DEVICE))
+        m = MultiTaskClassifier(cfg["model"], cfg["dropout"], pretrained=False).to(DEVICE)
+        m.load_state_dict(torch.load(rdir / "best_model.pt", weights_only=True, map_location=DEVICE, mmap=True))
         m.eval()
         V2_MODELS.append((tok, m, cfg["max_length"]))
         print(f"   ✓ {rn}")
-    # Cycle 50 결과에서 threshold
-    ens_result = json.loads((RUNS / "cycle50_ensemble_41_48_39_46" / "result.json").read_text(encoding="utf-8"))
-    V2_THR = [ens_result["thresholds"][c] for c in CAT]
-    print("✅ v2 multitask ensemble loaded\n")
+    thr_result = json.loads((RUNS / PROFILE.v2_threshold_run / "result.json").read_text(encoding="utf-8"))
+    V2_THR = [thr_result[PROFILE.v2_threshold_key][c] for c in CAT]
+    print("✅ v2 multitask models loaded\n")
 
-# startup에서 v2도 로딩 (메모리 충분)
 load_v2()
 
 # Qwen3-VL OCR (광고 이미지 → 텍스트)
@@ -207,7 +239,7 @@ def analyze_v2(text: str, use_synergy: bool = True):
     pol_probs_acc = None
     int_probs_acc = None
     for tok, m, max_len in V2_MODELS:
-        enc = tok(text, truncation=True, padding="max_length", max_length=max_len, return_tensors="pt")
+        enc = tok(text, truncation=True, max_length=max_len, return_tensors="pt")
         cat_l, pol_l, int_l = m(enc["input_ids"].to(DEVICE), enc["attention_mask"].to(DEVICE))
         cp = torch.sigmoid(cat_l).cpu().numpy()[0]
         pp = F.softmax(pol_l, dim=-1).cpu().numpy()[0]
@@ -240,7 +272,7 @@ def analyze_v2(text: str, use_synergy: bool = True):
     return {
         "version": "v2",
         "text": text,
-        "model": "v2 점수 (Cycle 50 multitask 4-앙상블, F1 0.8296)",
+        "model": PROFILE.label,
         "final_score_100": sr["final_score_100"],
         "raw_score": sr["raw_score"],
         "n_positive_categories": sr["n_positive_categories"],
@@ -575,7 +607,7 @@ INDEX_HTML = """<!doctype html>
     <div class="brand"><span class="brand-dot"></span> AD Persuasion Meter</div>
     <h1>광고 소비심리 자극 측정</h1>
     <p class="sub">SNS 광고의 7가지 설득 전략을 탐지하고 자극 강도를 정량화합니다.
-      <strong>KLUE-RoBERTa-large</strong> · F1 0.787</p>
+      <strong>KLUE-RoBERTa-large</strong> · <span id="hdrLabel">F1 0.787</span></p>
   </header>
 
   <div class="card" id="inputCard">
@@ -591,7 +623,7 @@ INDEX_HTML = """<!doctype html>
           <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8L9.41 17.34a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
         </svg>
       </button>
-      <label class="toggle" title="v2: 점수 공식 (학술 가중치 × 모델 확률 × 방향성 × 강도 × 시너지). 카테고리 F1 0.830 (v1 0.787 대비 +0.043)">
+      <label class="toggle" id="v2toggleLabel" title="v2: 점수 공식 (학술 가중치 × 모델 확률 × 방향성 × 강도 × 시너지). 카테고리 F1 0.830 (v1 0.787 대비 +0.043)">
         <input type="checkbox" id="v2toggle" checked>
         <span>점수 공식 (v2)</span>
       </label>
@@ -723,8 +755,16 @@ INDEX_HTML = """<!doctype html>
 </div>
 
 <script>
+const UI = __UI_FLAGS__;
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
+
+$('#hdrLabel').textContent = UI.label;
+if (!UI.ocr) {
+  ['#attachBtn', '#fileInput', '#imgPreview', '#dropOverlay'].forEach(s => $(s).remove());
+  $('#text').placeholder = '광고 텍스트를 입력하세요';
+}
+if (!UI.v1) $('#v2toggleLabel').style.display = 'none';
 
 const COLORS = {
   '사회적_정체성': 'var(--identity)',
@@ -747,12 +787,14 @@ $('#text').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submit(); }
 });
 $('#go').addEventListener('click', submit);
-$('#imgClear').addEventListener('click', clearImage);
-$('#attachBtn').addEventListener('click', () => $('#fileInput').click());
-$('#fileInput').addEventListener('change', e => {
-  if (e.target.files[0]) setImage(e.target.files[0]);
-  e.target.value = '';  // 같은 파일 재선택 가능
-});
+if (UI.ocr) {
+  $('#imgClear').addEventListener('click', clearImage);
+  $('#attachBtn').addEventListener('click', () => $('#fileInput').click());
+  $('#fileInput').addEventListener('change', e => {
+    if (e.target.files[0]) setImage(e.target.files[0]);
+    e.target.value = '';  // 같은 파일 재선택 가능
+  });
+}
 
 // 통합 submit: 이미지 있으면 OCR+분석, 없으면 텍스트만
 let currentImage = null;
@@ -762,6 +804,7 @@ function submit() {
 }
 
 function clearImage() {
+  if (!UI.ocr) return;
   currentImage = null;
   $('#imgPreview').style.display = 'none';
   $('#imgPreviewSrc').src = '';
@@ -784,38 +827,38 @@ function setImage(file) {
   return true;
 }
 
-// Drag & drop on textarea/card
-const card = $('#inputCard'), overlay = $('#dropOverlay');
-let dragCounter = 0;
-window.addEventListener('dragenter', e => {
-  if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) {
-    dragCounter++; overlay.classList.add('show');
-  }
-});
-window.addEventListener('dragleave', e => {
-  dragCounter--; if (dragCounter <= 0) { dragCounter = 0; overlay.classList.remove('show'); }
-});
-window.addEventListener('dragover', e => e.preventDefault());
-window.addEventListener('drop', e => {
-  e.preventDefault(); dragCounter = 0; overlay.classList.remove('show');
-  const file = e.dataTransfer.files[0];
-  if (file) setImage(file);
-});
-
-// Paste image (Ctrl/Cmd+V)
-window.addEventListener('paste', e => {
-  const items = e.clipboardData && e.clipboardData.items;
-  if (!items) return;
-  for (const item of items) {
-    if (item.type.startsWith('image/')) {
-      const file = item.getAsFile();
-      if (file) { e.preventDefault(); setImage(file); return; }
+if (UI.ocr) {
+  const card = $('#inputCard'), overlay = $('#dropOverlay');
+  let dragCounter = 0;
+  window.addEventListener('dragenter', e => {
+    if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) {
+      dragCounter++; overlay.classList.add('show');
     }
-  }
-});
+  });
+  window.addEventListener('dragleave', e => {
+    dragCounter--; if (dragCounter <= 0) { dragCounter = 0; overlay.classList.remove('show'); }
+  });
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => {
+    e.preventDefault(); dragCounter = 0; overlay.classList.remove('show');
+    const file = e.dataTransfer.files[0];
+    if (file) setImage(file);
+  });
+
+  window.addEventListener('paste', e => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) { e.preventDefault(); setImage(file); return; }
+      }
+    }
+  });
+}
 
 function getModelChoice() {
-  return $('#v2toggle').checked ? 'v2' : 'ensemble';
+  return !UI.v1 || $('#v2toggle').checked ? 'v2' : 'ensemble';
 }
 function getV2Options() {
   return {
@@ -824,7 +867,7 @@ function getV2Options() {
 }
 // v2 토글에 따라 sub-options 표시/숨김
 function syncV2Subopts() {
-  $('#v2subopts').classList.toggle('hide', !$('#v2toggle').checked);
+  $('#v2subopts').classList.toggle('hide', UI.v1 && !$('#v2toggle').checked);
 }
 $('#v2toggle').addEventListener('change', syncV2Subopts);
 syncV2Subopts();
@@ -1026,7 +1069,7 @@ function renderV2(d) {
     <div class="cats">${rows}</div>
     <div class="meta">
       <span>↑긍정 ·중립 ↓부정 / ●●●강 ●●보통 ●약</span>
-      <span>KLUE-RoBERTa 앙상블</span>
+      <span>${escapeHtml(d.model)}</span>
     </div>
     <div class="formula-bar" style="margin-top:12px;background:var(--accent-soft);padding:10px 14px;border-radius:10px;border:0">
       <span class="formula-label">사용된 공식</span>
@@ -1055,20 +1098,27 @@ function escapeHtml(s) {
 </html>"""
 
 
+UI_FLAGS = json.dumps({"ocr": PROFILE.ocr, "v1": bool(PROFILE.v1_runs), "label": PROFILE.label}, ensure_ascii=False)
+
+
 @app.get("/", response_class=HTMLResponse)
 def index():
-    return INDEX_HTML
+    return INDEX_HTML.replace("__UI_FLAGS__", UI_FLAGS)
 
 
 @app.get("/api/models")
 def models():
-    return {
-        "available": ["single", "ensemble", "v2"],
+    v1 = {
         "single": "v1 단일: Cycle 19 (multi-label sigmoid, F1 0.778, 단순 강도점수 Σw·prob)",
         "ensemble": "v1 앙상블: Cycle 23 (Cycle 19+13+18, F1 0.787, 단순 강도점수 Σw·prob)",
-        "v2": "v2 보정 점수 (PDF): Cycle 50 multitask 앙상블 (Cycle 41+48+39+46, F1 0.830) + 학술 보정 공식 Σ(w·ĉ·p·t)·synergy·100",
+    } if PROFILE.v1_runs else {}
+    return {
+        "available": [*v1, "v2"],
+        **v1,
+        "v2": f"v2 보정 점수 (PDF): {PROFILE.label} + 학술 보정 공식 Σ(w·ĉ·p·t)·synergy·100",
         "weights": WEIGHTS,
         "categories": CAT,
+        "ocr": PROFILE.ocr,
     }
 
 
@@ -1081,10 +1131,17 @@ def api_analyze(req: AnalyzeReq):
         raise HTTPException(400, "text too long (max 4000 chars)")
     if req.model == "v2":
         return analyze_v2(text, use_synergy=req.use_synergy)
+    if not PROFILE.v1_runs:
+        raise HTTPException(400, "이 서버는 v2 모델만 제공합니다")
     return analyze(text, req.model)
 
 
-@app.post("/api/analyze-image")
+def require_ocr():
+    if not PROFILE.ocr:
+        raise HTTPException(404, "이 서버는 이미지 분석(OCR)을 제공하지 않습니다")
+
+
+@app.post("/api/analyze-image", dependencies=[Depends(require_ocr)])
 async def api_analyze_image(
     file: UploadFile = File(...),
     model: str = Form("ensemble"),

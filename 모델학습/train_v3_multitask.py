@@ -24,7 +24,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import AdamW
-from transformers import AutoTokenizer, AutoModel, get_linear_schedule_with_warmup
+from transformers import AutoConfig, AutoTokenizer, AutoModel, get_linear_schedule_with_warmup
 from sklearn.metrics import f1_score
 import numpy as np
 
@@ -111,9 +111,10 @@ class AdsDataset(Dataset):
 
 
 class MultiTaskClassifier(nn.Module):
-    def __init__(self, model_name, dropout=0.1):
+    def __init__(self, model_name, dropout=0.1, pretrained=True):
         super().__init__()
-        self.backbone = AutoModel.from_pretrained(model_name)
+        self.backbone = (AutoModel.from_pretrained(model_name) if pretrained
+                         else AutoModel.from_config(AutoConfig.from_pretrained(model_name)))
         h = self.backbone.config.hidden_size
         self.dropout = nn.Dropout(dropout)
         self.cat_head = nn.Linear(h, NUM_CAT)               # multi-label sigmoid
