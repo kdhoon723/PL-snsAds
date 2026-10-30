@@ -874,8 +874,8 @@ syncV2Subopts();
 
 // 옵션 변경 시 현재 공식 갱신 (KaTeX 렌더링). 신뢰도 보정 제거 → prob 고정.
 function buildFormulaTex(useSyn) {
-  const syn = useSyn ? '\\cdot \\text{synergy}(n) ' : '';
-  return `\\text{score} = \\sum_{i \\in \\text{positive}} w_i \\cdot \\text{prob}_i \\cdot p_i \\cdot t_i ${syn}\\times 100`;
+  const syn = useSyn ? String.raw`\\cdot \\text{synergy}(n) ` : '';
+  return String.raw`\\text{score} = \\sum_{i \\in \\text{positive}} w_i \\cdot \\text{prob}_i \\cdot p_i \\cdot t_i ${syn}\\times 100`;
 }
 function updateFormula() {
   const tex = buildFormulaTex($('#useSynergy').checked);
